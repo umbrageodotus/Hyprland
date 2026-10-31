@@ -686,17 +686,15 @@ void CWLSurfaceResource::commitState(SSurfaceState& state) {
 
     if (m_role->role() == SURFACE_ROLE_SUBSURFACE) {
         auto subsurface = sc<CSubsurfaceRole*>(m_role.get())->m_subsurface.lock();
-        if (subsurface->m_sync)
-            return;
-
-        m_events.commit.emit();
+        if (subsurface && !subsurface->m_sync)
+            m_events.commit.emit();
     } else {
         // send commit to all synced surfaces in this tree.
         breadthfirst(
             [](SP<CWLSurfaceResource> surf, const Vector2D& offset, void* data) {
                 if (surf->m_role->role() == SURFACE_ROLE_SUBSURFACE) {
                     auto subsurface = sc<CSubsurfaceRole*>(surf->m_role.get())->m_subsurface.lock();
-                    if (!subsurface->m_sync)
+                    if (!subsurface || !subsurface->m_sync)
                         return;
                 }
                 surf->m_events.commit.emit();
