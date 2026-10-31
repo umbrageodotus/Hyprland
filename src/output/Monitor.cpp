@@ -17,6 +17,7 @@
 #include "../protocols/PresentationTime.hpp"
 #include "../protocols/DRMLease.hpp"
 #include "../protocols/DRMSyncobj.hpp"
+#include "../protocols/Fifo.hpp"
 #include "../protocols/core/Output.hpp"
 #include "../protocols/Screencopy.hpp"
 #include "../protocols/ToplevelExport.hpp"
@@ -2044,9 +2045,8 @@ bool CMonitor::attemptDirectScanout() {
             m_scanoutNeedsCursorUpdate = false;
         }
 
-        //#TODO this entire bit is bootleg deluxe, above bit is to not make vrr go down the drain, returning early here means fifo gets forever locked.
         if (PSURFACE->m_fifo && !m_tearingState.activelyTearing && *PSAMEFIFO)
-            PSURFACE->m_stateQueue.unlockFirst(LOCK_REASON_FIFO);
+            PSURFACE->m_fifo->presented();
 
         return true;
     }
