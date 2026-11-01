@@ -2692,7 +2692,7 @@ bool CMonitor::needsUnmodifiedCopy() {
     if (m_imageDescription->value().transferFunction != CM_TRANSFER_FUNCTION_ST2084_PQ && m_imageDescription->value().transferFunction != CM_TRANSFER_FUNCTION_HLG)
         return false;
 
-    return *PKEEP == 2 ? true : needsACopyFB();
+    return needsACopyFB() || (*PKEEP == 2 && Screenshare::mgr()->isOutputBeingSSd(m_self.lock()));
 }
 
 bool CMonitor::useFP16() {
