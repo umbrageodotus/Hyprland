@@ -2684,8 +2684,8 @@ bool CMonitor::needsUnmodifiedCopy() {
     if (*PKEEP == 1)
         return true;
 
-    const bool HAS_MODS = m_sdrMinLuminance != SDR_MIN_LUMINANCE || m_sdrMaxLuminance != SDR_MAX_LUMINANCE || (m_sdrBrightness > 0 && m_sdrBrightness != 1.0) ||
-        (m_sdrSaturation > 0 && m_sdrSaturation != 1.0);
+    const bool HAS_MODS =
+        m_sdrMinLuminance != SDR_MIN_LUMINANCE || m_sdrMaxLuminance != 203 || (m_sdrBrightness > 0 && m_sdrBrightness != 1.0) || (m_sdrSaturation > 0 && m_sdrSaturation != 1.0);
 
     if (!HAS_MODS)
         return false;
