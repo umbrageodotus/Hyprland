@@ -39,7 +39,13 @@ vec4 blurFinish(vec4 pixColor, vec2 v_texcoord, float noise, float brightness
     pixColor.rgb *= brightnessMultiplier;
 
 #if USE_CM
-    pixColor = doColorManagement(pixColor, 1.0, sourceTF, targetTF, convertMatrix, srcTFRange, dstTFRange, linearNoise);
+    pixColor = doColorManagement(pixColor, 1.0, sourceTF, targetTF, convertMatrix, srcTFRange, dstTFRange,
+                                 linearNoise
+#if USE_SDR_MOD
+                                 ,
+                                 mat3(1.0), 1.0, sdrBrightnessMultiplier
+#endif
+    );
 #endif
 
     return pixColor;
