@@ -516,11 +516,16 @@ RGBAColor NColorManagement::convertColor(RGBAColor color, PImageDescription srcD
         if (settings.needsTonemap)
             color = tonemap(color, settings.dstPrimaries2XYZ, settings.maxLuminance, settings.dstMaxLuminance, settings.dstRefLuminance, settings.srcRefLuminance);
 
-        color = fromLinearNit(color, dstDesc->value().transferFunction, settings.dstTFRange);
-        if (settings.needsSDRmod) {
-            color = saturate(color, settings.dstPrimaries2XYZ, settings.sdrSaturation);
-            color *= settings.sdrBrightnessMultiplier;
+        if (settings.needsSDRmod && settings.sdrBrightnessMultiplier != 1.0F) {
+            const double premultipliedBlack = settings.dstTFRange.min * color.c.a;
+            color.c.r = (color.c.r - premultipliedBlack) * settings.sdrBrightnessMultiplier + premultipliedBlack;
+            color.c.g = (color.c.g - premultipliedBlack) * settings.sdrBrightnessMultiplier + premultipliedBlack;
+            color.c.b = (color.c.b - premultipliedBlack) * settings.sdrBrightnessMultiplier + premultipliedBlack;
         }
+        color = fromLinearNit(color, dstDesc->value().transferFunction, settings.dstTFRange);
+
+        if (settings.needsSDRmod)
+            color = saturate(color, settings.dstPrimaries2XYZ, settings.sdrSaturation);
     }
     return color;
 }
