@@ -74,8 +74,10 @@
 #include <hyprutils/math/Vector2D.hpp>
 #include <hyprutils/memory/SharedPtr.hpp>
 #include <hyprutils/memory/UniquePtr.hpp>
+#include <array>
 #include <optional>
 #include <pango/pangocairo.h>
+#include <tuple>
 #include <type_traits>
 #include <unordered_map>
 
@@ -3777,22 +3779,32 @@ SP<ITexture> IHyprRenderer::renderSplash(const std::function<SP<ITexture>(const 
     return tex;
 }
 
-using ColorConversionKey = std::tuple<float, float, float, float, uint64_t>;
+struct SColorConversionKey {
+    std::array<double, 4> rgba{};
+    uint64_t              dstDescId = 0;
+    // Negative range values distinguish inactive SDR mapping from an active range using the defaults.
+    float sdrMinLuminance = -1.F;
+    float sdrMaxLuminance = -1.F;
+    float sdrSaturation   = 1.F;
+    float sdrBrightness   = 1.F;
+
+    bool  operator==(const SColorConversionKey&) const = default;
+};
 
 struct SColorConversionKeyHash {
-    size_t operator()(const ColorConversionKey& key) const {
+    size_t operator()(const SColorConversionKey& key) const {
         size_t hash = 0;
 
-        // fold each tuple element to a order sensitive hash the constant is
-        // the 64-bit golden-ratio value used to
-        // distribute bits and reduce collisions between adjacent fields.
+        // The 64-bit golden-ratio constant reduces collisions between adjacent fields.
         const auto hashCombine = [&hash](const auto& value) { hash ^= std::hash<std::decay_t<decltype(value)>>{}(value) + 0x9e3779b97f4a7c15ULL + (hash << 6) + (hash >> 2); };
 
-        hashCombine(std::get<0>(key));
-        hashCombine(std::get<1>(key));
-        hashCombine(std::get<2>(key));
-        hashCombine(std::get<3>(key));
-        hashCombine(std::get<4>(key));
+        for (const auto channel : key.rgba)
+            hashCombine(channel);
+        hashCombine(key.dstDescId);
+        hashCombine(key.sdrMinLuminance);
+        hashCombine(key.sdrMaxLuminance);
+        hashCombine(key.sdrSaturation);
+        hashCombine(key.sdrBrightness);
 
         return hash;
     }
@@ -3801,7 +3813,7 @@ struct SColorConversionKeyHash {
 constexpr const size_t MAX_COLOR_CONVERSION_CACHE_SIZE = 4096;
 
 static auto            colorConversionCache = []() {
-    std::unordered_map<ColorConversionKey, CHyprColor, SColorConversionKeyHash> cache;
+    std::unordered_map<SColorConversionKey, CHyprColor, SColorConversionKeyHash> cache;
     cache.reserve(MAX_COLOR_CONVERSION_CACHE_SIZE);
     return cache;
 }();
@@ -3815,17 +3827,30 @@ CHyprColor IHyprRenderer::getConvertedColor(CRenderContext& ctx, const CHyprColo
         return color;
     }
 
-    if (colorConversionCache.size() >= MAX_COLOR_CONVERSION_CACHE_SIZE)
-        colorConversionCache.clear();
+    const auto& monitor         = ctx.m_data.pMonitor;
+    const auto& source          = DEFAULT_SRGB_IMAGE_DESCRIPTION;
+    const bool  modifySDRRange  = monitor && isSDR2HDR(ctx, source->value(), DESCR->value());
+    const float sdrMinLuminance = modifySDRRange ? monitor->m_sdrMinLuminance : -1.F;
+    const int   sdrMaxLuminance = modifySDRRange ? monitor->m_sdrMaxLuminance : -1;
 
-    const ColorConversionKey key = {color.r, color.g, color.b, color.a, DESCR->id()};
+    // The fixed source and default tonemap mode leave only the destination and active SDR settings to vary.
+    const SColorConversionKey key = {
+        .rgba            = {color.r, color.g, color.b, color.a},
+        .dstDescId       = DESCR->id(),
+        .sdrMinLuminance = modifySDRRange ? source->value().getTFMinLuminance(sdrMinLuminance) : -1.F,
+        .sdrMaxLuminance = modifySDRRange ? source->value().getTFMaxLuminance(sdrMaxLuminance) : -1.F,
+        .sdrSaturation   = modifySDRRange ? effectiveSDRModifier(monitor->m_sdrSaturation) : 1.F,
+        .sdrBrightness   = modifySDRRange ? effectiveSDRModifier(monitor->m_sdrBrightness) : 1.F,
+    };
 
     if (const auto IT = colorConversionCache.find(key); IT != colorConversionCache.end())
         return IT->second;
 
-    const auto settings  = getCMSettings(ctx, DEFAULT_SRGB_IMAGE_DESCRIPTION, DESCR, nullptr, true, ctx.m_data.pMonitor ? ctx.m_data.pMonitor->m_sdrMinLuminance : -1,
-                                         ctx.m_data.pMonitor ? ctx.m_data.pMonitor->m_sdrMaxLuminance : -1);
-    const auto converted = convertColor(color, DEFAULT_SRGB_IMAGE_DESCRIPTION, DESCR, settings);
+    if (colorConversionCache.size() >= MAX_COLOR_CONVERSION_CACHE_SIZE)
+        colorConversionCache.clear();
+
+    const auto settings  = getCMSettings(ctx, source, DESCR, nullptr, modifySDRRange, sdrMinLuminance, sdrMaxLuminance);
+    const auto converted = convertColor(color, source, DESCR, settings);
     colorConversionCache.emplace(key, converted);
 
     return converted;
