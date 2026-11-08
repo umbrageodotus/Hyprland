@@ -77,7 +77,7 @@ CFifoResource::CFifoResource(UP<CWpFifoV1>&& resource_, SP<CWLSurfaceResource> s
         }
 
         // check if entered outputs yet, and they are not tearing.
-        if (!checkMonitors())
+        if (!findPresentationMonitor())
             return;
 
         // only lock once its mapped and visible and actually has something waiting for a presentation.
@@ -129,19 +129,32 @@ void CFifoResource::presented() {
     m_surface->m_stateQueue.unlockFirst(LOCK_REASON_FIFO);
 }
 
-bool CFifoResource::checkMonitors() {
-    bool allowFifo = false;
+void CFifoResource::wakeIfIdle() {
+    if (const auto MONITOR = findPresentationMonitor(); MONITOR && !MONITOR->m_output->pendingPageFlip())
+        MONITOR->scheduleFrame(Aquamarine::IOutput::AQ_SCHEDULE_NEEDS_FRAME);
+}
+
+PHLMONITOR CFifoResource::findPresentationMonitor() {
+    if (!g_pCompositor->m_sessionActive || (g_pCompositor->m_aqBackend->hasSession() && !g_pCompositor->m_aqBackend->session->active))
+        return nullptr;
+
+    PHLMONITOR monitor;
+    const auto CONSIDER = [&monitor](const PHLMONITOR& candidate) {
+        if (candidate->m_enabled && candidate->m_dpmsStatus && candidate->m_output && (!monitor || candidate->m_output->pendingPageFlip()))
+            monitor = candidate;
+    };
+
     if (m_surface->m_enteredOutputs.empty() && m_surface->m_hlSurface) {
+        const auto BOX = m_surface->m_hlSurface->getSurfaceBoxGlobal();
         for (auto& m : State::monitorState()->monitors()) {
             if (!m || !m->m_enabled)
                 continue;
 
-            auto box = m_surface->m_hlSurface->getSurfaceBoxGlobal();
-            if (box && !box->intersection({m->m_position, m->m_size}).empty()) {
+            if (BOX && !BOX->intersection({m->m_position, m->m_size}).empty()) {
                 if (m->m_tearingState.activelyTearing)
-                    return false; // dont fifo lock on tearing.
+                    return nullptr; // dont fifo lock on tearing.
 
-                allowFifo = true; // intersects.
+                CONSIDER(m);
             }
         }
     } else {
@@ -150,13 +163,13 @@ bool CFifoResource::checkMonitors() {
                 continue;
 
             if (m->m_tearingState.activelyTearing)
-                return false; // dont fifo lock on tearing.
+                return nullptr; // dont fifo lock on tearing.
 
-            allowFifo = true;
+            CONSIDER(m.lock());
         }
     }
 
-    return allowFifo;
+    return monitor;
 }
 
 CFifoManagerResource::CFifoManagerResource(UP<CWpFifoManagerV1>&& resource_) : m_resource(std::move(resource_)) {

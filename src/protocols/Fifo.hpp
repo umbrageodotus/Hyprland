@@ -15,6 +15,7 @@ class CFifoResource {
     ~CFifoResource();
 
     void presented();
+    void wakeIfIdle();
     bool good();
 
   private:
@@ -26,7 +27,7 @@ class CFifoResource {
         CHyprSignalListener surfaceStateCommit;
     } m_listeners;
 
-    bool checkMonitors();
+    PHLMONITOR findPresentationMonitor();
 
     friend class CFifoProtocol;
     friend class CFifoManagerResource;

@@ -1,6 +1,7 @@
 #include "SurfaceStateQueue.hpp"
 #include "../core/Compositor.hpp"
 #include "../PresentationTime.hpp"
+#include "../Fifo.hpp"
 #include "SurfaceState.hpp"
 
 CSurfaceStateQueue::CSurfaceStateQueue(WP<CWLSurfaceResource> surf) : m_surface(std::move(surf)) {}
@@ -94,8 +95,11 @@ void CSurfaceStateQueue::tryProcess() {
     while (!m_queue.empty()) {
         auto& front = m_queue.front();
 
-        if (front->isLocked())
+        if (front->isLocked()) {
+            if (front->lockMask == LOCK_REASON_FIFO && m_surface->m_fifo)
+                m_surface->m_fifo->wakeIfIdle();
             break;
+        }
 
         auto next = std::next(m_queue.begin());
         if (next != m_queue.end() && !(*next)->isLocked()) {
