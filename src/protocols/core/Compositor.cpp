@@ -662,6 +662,9 @@ void CWLSurfaceResource::drainSyncFds(WP<SSurfaceState> state, eLockReason reaso
 }
 
 void CWLSurfaceResource::commitState(SSurfaceState& state) {
+    if (state.barrierSet)
+        m_current.waitingOnPresentation = true;
+
     if (!state.updated.all && m_mapped)
         return;
 

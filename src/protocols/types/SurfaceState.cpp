@@ -120,6 +120,7 @@ void SSurfaceState::cancelFenceWaiter() {
 
 void SSurfaceState::mergeFrom(SSurfaceState& ref) {
     updated.all |= ref.updated.all;
+    barrierSet |= ref.barrierSet;
 
     if (ref.updated.bits.buffer) {
         if (!presentationFeedbacks.empty())
@@ -241,7 +242,4 @@ void SSurfaceState::updateFrom(SSurfaceState& ref) {
                                      std::make_move_iterator(ref.presentationFeedbacks.end()));
         ref.presentationFeedbacks.clear();
     }
-
-    if (ref.barrierSet)
-        waitingOnPresentation = true;
 }
