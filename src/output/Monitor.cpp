@@ -629,7 +629,8 @@ bool CMonitor::applyMonitorRuleSoft(Config::CMonitorRule&& pMonitorRule) {
         m_sdrSaturation = m_activeMonitorRule.m_sdrSaturation;
         m_sdrBrightness = m_activeMonitorRule.m_sdrBrightness;
     } else {
-        auto image = NColorManagement::SImageDescription::fromICC(m_activeMonitorRule.m_iccFile);
+        const auto oldImageDescription = m_imageDescription;
+        auto       image               = NColorManagement::SImageDescription::fromICC(m_activeMonitorRule.m_iccFile);
         if (!image) {
             LOG(Log::ERR, "icc for {} ({}) failed: {}", m_name, m_activeMonitorRule.m_iccFile, image.error());
             ErrorOverlay::overlay()->queueError(std::format("failed to apply icc {} to {}: {}", m_activeMonitorRule.m_iccFile, m_name, image.error()));
@@ -640,6 +641,13 @@ bool CMonitor::applyMonitorRuleSoft(Config::CMonitorRule&& pMonitorRule) {
                 ErrorOverlay::overlay()->queueError(std::format("failed to apply icc {} to {}: {}", m_activeMonitorRule.m_iccFile, m_name, image.error()));
                 m_imageDescription = CImageDescription::from(SImageDescription{});
             }
+        }
+
+        if (oldImageDescription != m_imageDescription) {
+            if (PROTO::colorManagement)
+                PROTO::colorManagement->onMonitorImageDescriptionChanged(m_self);
+            m_blurFBDirty = true;
+            g_pHyprRenderer->damageMonitor(m_self.lock());
         }
     }
 
