@@ -234,20 +234,19 @@ vec4
     pixColor.rgb /= max(sourceAlpha, 0.001);
     pixColor.rgb = toLinearRGB(pixColor.rgb, srcTF);
     pixColor.rgb += linearNoise;
-    
+
 #if USE_ICC
-    pixColor.rgb = applyIcc3DLut(pixColor.rgb, iccLut3D, iccLutSize);
+    pixColor.rgb = applyIcc3DLut(pixColor.rgb, iccLut3D, iccLutSize) * finalAlpha;
     pixColor.a   = finalAlpha;
-    pixColor.rgb *= pixColor.a;
 #else
     pixColor.rgb = convertMatrix * pixColor.rgb;
     if (srcTF != CM_TRANSFER_FUNCTION_LINEAR)
         pixColor = toNit(pixColor, srcTFRange);
-    pixColor.a   = finalAlpha;
-    pixColor.rgb *= pixColor.a;
 #if USE_TONEMAP
     pixColor = tonemap(pixColor, dstxyz, maxLuminance, dstMaxLuminance, dstRefLuminance, srcRefLuminance, tonemapMode);
 #endif
+    pixColor.a   = finalAlpha;
+    pixColor.rgb *= pixColor.a;
 
 #if USE_MIRROR
     // TODO HDR -> SDR tonemap

@@ -512,9 +512,9 @@ RGBAColor NColorManagement::convertColor(RGBAColor color, PImageDescription srcD
         color.c.b                = converted.z;
         if (srcDesc->value().transferFunction != CM_TRANSFER_FUNCTION_LINEAR)
             color = toNit(color, settings.srcTFRange);
-        color *= color.c.a;
         if (settings.needsTonemap)
             color = tonemap(color, settings.dstPrimaries2XYZ, settings.maxLuminance, settings.dstMaxLuminance, settings.dstRefLuminance, settings.srcRefLuminance);
+        color *= color.c.a;
 
         if (settings.needsSDRmod && settings.sdrBrightnessMultiplier != 1.0F) {
             const double premultipliedBlack = settings.dstTFRange.min * color.c.a;
