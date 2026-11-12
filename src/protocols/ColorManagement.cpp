@@ -389,6 +389,8 @@ CColorManagementFeedbackSurface::CColorManagementFeedbackSurface(SP<CWpColorMana
         return;
 
     m_client = m_resource->client();
+    if (const auto preferred = surface_->getPreferredImageDescription())
+        m_currentPreferredId = preferred->id();
 
     m_resource->setDestroy([this](CWpColorManagementSurfaceFeedbackV1* r) {
         LOG(Log::TRACE, "Destroy wp cm feedback surface {}", (uintptr_t)m_surface.get());
@@ -419,7 +421,8 @@ CColorManagementFeedbackSurface::CColorManagementFeedbackSurface(SP<CWpColorMana
         RESOURCE->m_self     = RESOURCE;
         RESOURCE->m_settings = m_surface->getPreferredImageDescription();
 
-        RESOURCE->sendMaybeReady();
+        if (RESOURCE->sendMaybeReady())
+            m_currentPreferredId = RESOURCE->m_settings->id();
     });
 
     m_resource->setGetPreferredParametric([this](CWpColorManagementSurfaceFeedbackV1* r, uint32_t id) {
@@ -441,7 +444,6 @@ CColorManagementFeedbackSurface::CColorManagementFeedbackSurface(SP<CWpColorMana
 
         RESOURCE->m_self     = RESOURCE;
         RESOURCE->m_settings = m_surface->getPreferredImageDescription();
-        m_currentPreferredId = RESOURCE->m_settings->id();
 
         if (!PROTO::colorManagement->m_debug && RESOURCE->m_settings->value().icc.present) {
             LOG(Log::ERR, "FIXME: send ICC profile data");
@@ -449,7 +451,8 @@ CColorManagementFeedbackSurface::CColorManagementFeedbackSurface(SP<CWpColorMana
             // return;
         }
 
-        RESOURCE->sendMaybeReady();
+        if (RESOURCE->sendMaybeReady())
+            m_currentPreferredId = RESOURCE->m_settings->id();
     });
 
     m_listeners.enter = m_surface->m_events.enter.listen([this](const auto& monitor) { onPreferredChanged(); });
@@ -457,20 +460,25 @@ CColorManagementFeedbackSurface::CColorManagementFeedbackSurface(SP<CWpColorMana
 }
 
 void CColorManagementFeedbackSurface::onPreferredChanged() {
-    if (m_surface.expired())
+    const auto surface = m_surface.lock();
+    if (!surface)
         return;
 
-    if (m_surface->m_enteredOutputs.size() == 1) {
-        const auto newId = m_surface->getPreferredImageDescription()->id();
-        if (m_currentPreferredId != newId) {
-            const uint32_t lo = sc<uint32_t>(newId & 0xFFFFFFFF);
-            const uint32_t hi = sc<uint32_t>(newId >> 32);
-            if (m_resource->version() > 1)
-                m_resource->sendPreferredChanged2(hi, lo);
-            else if (!hi)
-                m_resource->sendPreferredChanged(lo);
-        }
-    }
+    const auto preferred = surface->getPreferredImageDescription();
+    if (!preferred || m_currentPreferredId == preferred->id())
+        return;
+
+    const auto     newId = preferred->id();
+    const uint32_t lo    = sc<uint32_t>(newId & 0xFFFFFFFF);
+    const uint32_t hi    = sc<uint32_t>(newId >> 32);
+    if (m_resource->version() > 1)
+        m_resource->sendPreferredChanged2(hi, lo);
+    else if (!hi)
+        m_resource->sendPreferredChanged(lo);
+    else
+        return;
+
+    m_currentPreferredId = newId;
 }
 
 bool CColorManagementFeedbackSurface::good() {
