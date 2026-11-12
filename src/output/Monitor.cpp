@@ -2064,16 +2064,14 @@ bool CMonitor::attemptDirectScanout() {
 
     const auto  previousFormat           = m_drmFormat;
     const auto  previousBuffer           = m_output->state->state().buffer;
-    const auto  previousPresentationMode = m_output->state->state().presentationMode;
     bool        scanoutCommitted         = false;
-    CScopeGuard rollbackState            = {[this, previousFormat, previousBuffer, previousPresentationMode, &scanoutCommitted]() {
+    CScopeGuard rollbackState            = {[this, previousFormat, previousBuffer, &scanoutCommitted]() {
         if (scanoutCommitted)
             return;
 
         m_drmFormat = previousFormat;
         m_output->state->setFormat(previousFormat);
         m_output->state->setBuffer(previousBuffer);
-        m_output->state->setPresentationMode(previousPresentationMode);
         m_output->state->resetExplicitFences();
     }};
 
@@ -2084,9 +2082,6 @@ bool CMonitor::attemptDirectScanout() {
     }
 
     m_output->state->setBuffer(PBUFFER);
-    LOG(Log::TRACE, "attemptDirectScanout: setting presentation mode");
-    m_output->state->setPresentationMode(m_tearingState.activelyTearing ? Aquamarine::eOutputPresentationMode::AQ_OUTPUT_PRESENTATION_IMMEDIATE :
-                                                                          Aquamarine::eOutputPresentationMode::AQ_OUTPUT_PRESENTATION_VSYNC);
 
     if (NEEDS_TEST && !m_state.test()) {
         LOG(Log::TRACE, "attemptDirectScanout: failed basic test");
