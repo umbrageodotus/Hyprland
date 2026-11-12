@@ -1,4 +1,5 @@
 #include "ColorManagement.hpp"
+#include "../event/EventBus.hpp"
 #include "Compositor.hpp"
 #include "color-management-v1.hpp"
 #include "../output/Monitor.hpp"
@@ -882,7 +883,8 @@ wl_client* CColorManagementImageDescriptionInfo::client() {
 
 CColorManagementProtocol::CColorManagementProtocol(const wl_interface* iface, const int& ver, const std::string& name, bool debug) :
     IWaylandProtocol(iface, ver, name), m_debug(debug) {
-    ;
+    m_listeners.layoutChanged  = Event::bus()->m_events.monitor.layoutChanged.listen([this] { recheckFeedbacks(); });
+    m_listeners.configReloaded = Event::bus()->m_events.config.reloaded.listen([this] { recheckFeedbacks(); });
 }
 
 void CColorManagementProtocol::bindManager(wl_client* client, void* data, uint32_t ver, uint32_t id) {
@@ -895,12 +897,6 @@ void CColorManagementProtocol::bindManager(wl_client* client, void* data, uint32
     }
 
     LOG(Log::TRACE, "New WP_color_manager at {:x}", (uintptr_t)RESOURCE.get());
-}
-
-void CColorManagementProtocol::onImagePreferredChanged(uint32_t preferredId) {
-    for (auto const& feedback : m_feedbackSurfaces) {
-        feedback->m_resource->sendPreferredChanged(preferredId);
-    }
 }
 
 void CColorManagementProtocol::recheckFeedbacks() {

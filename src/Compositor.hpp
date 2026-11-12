@@ -84,7 +84,6 @@ class CCompositor {
 
     NColorManagement::PImageDescription getPreferredImageDescription();
     NColorManagement::PImageDescription getHDRImageDescription();
-    bool                                shouldChangePreferredImageDescription();
 
     bool                                supportsDrmSyncobjTimeline() const;
     std::string                         m_explicitConfigPath;
