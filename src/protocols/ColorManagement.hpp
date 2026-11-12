@@ -4,6 +4,7 @@
 #include <vector>
 #include <cstdint>
 #include "WaylandProtocol.hpp"
+#include "../helpers/signal/Signal.hpp"
 #include "../output/Monitor.hpp"
 #include "core/Compositor.hpp"
 #include "color-management-v1.hpp"
@@ -193,7 +194,6 @@ class CColorManagementProtocol : public IWaylandProtocol {
 
     virtual void bindManager(wl_client* client, void* data, uint32_t ver, uint32_t id);
 
-    void         onImagePreferredChanged(uint32_t preferredId);
     void         recheckFeedbacks();
     void         onMonitorImageDescriptionChanged(PHLMONITORREF monitor);
 
@@ -216,6 +216,11 @@ class CColorManagementProtocol : public IWaylandProtocol {
     std::vector<SP<CColorManagementParametricCreator>> m_parametricCreators;
     std::vector<SP<CColorManagementImageDescription>>  m_imageDescriptions;
     bool                                               m_debug = false;
+
+    struct {
+        CHyprSignalListener layoutChanged;
+        CHyprSignalListener configReloaded;
+    } m_listeners;
 
     friend class CColorManager;
     friend class CColorManagementOutput;
