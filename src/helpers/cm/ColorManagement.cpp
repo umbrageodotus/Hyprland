@@ -491,9 +491,8 @@ static RGBAColor fromLinearRGB(RGBAColor color, eTransferFunction tf) {
 }
 
 static RGBAColor toNit(RGBAColor color, Render::STFRange range) {
-    for (uint i = 0; i <= 2; i++) {
-        color.v[i] = color.v[i] * (range.max - range.min) + range.min;
-    }
+    color *= range.max - range.min;
+    color += range.min;
     return color;
 }
 
@@ -501,9 +500,8 @@ static RGBAColor fromLinearNit(RGBAColor color, eTransferFunction tf, Render::ST
     if (tf == CM_TRANSFER_FUNCTION_LINEAR)
         return color;
 
-    for (uint i = 0; i <= 2; i++) {
-        color.v[i] = (color.v[i] - range.min * color.c.a) / (range.max - range.min);
-    }
+    color -= range.min * color.c.a;
+    color /= range.max - range.min;
     color /= std::max(color.c.a, 0.001);
     color = fromLinearRGB(color, tf);
     color *= color.c.a;
@@ -517,9 +515,9 @@ static RGBAColor saturate(RGBAColor color, std::array<std::array<double, 3>, 3> 
     std::array<double, 3> colorArr   = {color.v[0], color.v[1], color.v[2]};
     std::array<double, 3> brightness = {primaries[1][0], primaries[1][1], primaries[1][2]};
     const auto            Y          = std::inner_product(colorArr.begin(), colorArr.end(), brightness.begin(), 0.0);
-    for (uint i = 0; i <= 2; i++) {
-        color.v[i] = (color.v[i] * saturation) + (Y * (1.0 - saturation));
-    }
+
+    color *= saturation;
+    color += Y * (1.0 - saturation);
     return color;
 }
 
@@ -533,9 +531,9 @@ static RGBAColor tonemap(RGBAColor color, const Render::SCMSettings& settings) {
     const float dstPeakRatio     = std::max(settings.dstMaxLuminance - settings.dstTonemapBlack, 0.0F) / dstReferenceSpan;
 
     if (std::max(settings.srcRefLuminance, 0.001F) != std::max(settings.dstRefLuminance, 0.001F) || settings.srcTFRange.min != settings.dstTonemapBlack) {
-        const double referenceGain = sc<double>(dstReferenceSpan) / srcReferenceSpan;
-        for (size_t channelIndex = 0; channelIndex < 3; ++channelIndex)
-            color.v[channelIndex] = (color.v[channelIndex] - settings.srcTFRange.min) * referenceGain + settings.dstTonemapBlack;
+        color -= settings.srcTFRange.min;
+        color *= sc<double>(dstReferenceSpan) / srcReferenceSpan;
+        color += settings.dstTonemapBlack;
     }
     const bool extendedOutput = settings.targetTF == CM_TRANSFER_FUNCTION_LINEAR || settings.targetTF == CM_TRANSFER_FUNCTION_EXT_LINEAR ||
         settings.targetTF == CM_TRANSFER_FUNCTION_EXT_SRGB || settings.targetTF == CM_TRANSFER_FUNCTION_XVYCC;
@@ -568,9 +566,9 @@ RGBAColor NColorManagement::convertColor(RGBAColor color, PImageDescription srcD
 
         if (settings.needsSDRmod && settings.sdrBrightnessMultiplier != 1.0F) {
             const double premultipliedBlack = settings.dstTFRange.min * color.c.a;
-            color.c.r = (color.c.r - premultipliedBlack) * settings.sdrBrightnessMultiplier + premultipliedBlack;
-            color.c.g = (color.c.g - premultipliedBlack) * settings.sdrBrightnessMultiplier + premultipliedBlack;
-            color.c.b = (color.c.b - premultipliedBlack) * settings.sdrBrightnessMultiplier + premultipliedBlack;
+            color -= premultipliedBlack;
+            color *= settings.sdrBrightnessMultiplier;
+            color += premultipliedBlack;
         }
         color = fromLinearNit(color, dstDesc->value().transferFunction, settings.dstTFRange);
 
