@@ -4,13 +4,13 @@
 #endif
 #include "constants.h"
 
-const mat3 BT2020toLMS = mat3( //
+const mat3 XYZtoLMS = mat3( //
     0.3592, -0.1922, 0.0070,   //
     0.6976, 1.1004, 0.0749,    //
     -0.0358, 0.0755, 0.8434    //
 );
-//const mat3 LMStoBT2020 = inverse(BT2020toLMS);
-const mat3 LMStoBT2020 = mat3(                                                //
+//const mat3 LMStoXYZ = inverse(XYZtoLMS);
+const mat3 LMStoXYZ = mat3(                                                //
     2.0701800566956135096, 0.36498825003265747974, -0.049595542238932107896,  //
     -1.3264568761030210255, 0.68046736285223514102, -0.049421161186757487412, //
     0.20661600684785517081, -0.045421753075853231409, 1.1879959417328034394   //
@@ -41,6 +41,19 @@ const mat3 ICtCpPQInv = mat3(                                                //
 // ) / 4096.0);
 // const mat3 ICtCpHLGInv = inverse(ICtCpHLG);
 
+// Signed PQ is internal to LMS/ICtCp; display PQ encoding remains bounded.
+vec3 encodeSignedPQ(vec3 linearValue) {
+    vec3 linearMagnitudePower = pow(abs(linearValue), vec3(PQ_M1));
+    return sign(linearValue) * pow((PQ_C1 + PQ_C2 * linearMagnitudePower) / (1.0 + PQ_C3 * linearMagnitudePower), vec3(PQ_M2));
+}
+
+vec3 decodeSignedPQ(vec3 pqValue) {
+    vec3 pqMagnitudeRoot = pow(abs(pqValue), vec3(PQ_INV_M2));
+    // Keep the extension finite at and beyond the inverse PQ asymptote.
+    vec3 denominator = max((PQ_C2 - PQ_C3) - PQ_C3 * (pqMagnitudeRoot - 1.0), vec3(0.0001));
+    return sign(pqValue) * pow(max(pqMagnitudeRoot - PQ_C1, vec3(0.0)) / denominator, vec3(PQ_INV_M1));
+}
+
 vec4 tonemap(vec4 color, mat3 dstXYZ, float maxLuminance, float dstMaxLuminance, float dstRefLuminance, float srcRefLuminance, int tonemapMode, vec2 blackLuminances) {
     if (tonemapMode == 0)
         return color;
@@ -60,15 +73,14 @@ vec4 tonemap(vec4 color, mat3 dstXYZ, float maxLuminance, float dstMaxLuminance,
         return vec4(clamp(mapped, vec3(0.0), vec3(dstMaxLuminance)), color.a);
     }
 
-    mat3 toLMS   = BT2020toLMS * dstXYZ;
-    mat3 fromLMS = inverse(dstXYZ) * LMStoBT2020;
+    mat3 toLMS   = XYZtoLMS * dstXYZ;
+    mat3 fromLMS = inverse(dstXYZ) * LMStoXYZ;
 
     // Transform black-relative RGB so the nonlinear conversion preserves the black endpoint.
-    vec3  lms   = fromLinear(vec4((toLMS * (color.rgb - blackLuminances.x)) / HDR_MAX_LUMINANCE, 1.0), CM_TRANSFER_FUNCTION_ST2084_PQ).rgb;
+    vec3  lms   = encodeSignedPQ((toLMS * (color.rgb - blackLuminances.x)) / HDR_MAX_LUMINANCE);
     vec3  ICtCp = ICtCpPQ * lms;
 
-    float E         = pow(clamp(ICtCp[0], 0.0, 1.0), PQ_INV_M2);
-    float luminance = pow((max(E - PQ_C1, 0.0)) / (PQ_C2 - PQ_C3 * E), PQ_INV_M1) * HDR_MAX_LUMINANCE;
+    float luminance = decodeSignedPQ(vec3(ICtCp.x)).x * HDR_MAX_LUMINANCE;
 
     float newLuminance;
 #if USE_ALT_TONEMAP
@@ -88,9 +100,8 @@ vec4 tonemap(vec4 color, mat3 dstXYZ, float maxLuminance, float dstMaxLuminance,
     newLuminance           = (luminanceRatio * (1.0 + luminanceRatio * curveCoefficient) / (1.0 + luminanceRatio)) * dstReferenceSpan;
 #endif
 
-    E        = pow(clamp(newLuminance / HDR_MAX_LUMINANCE, 0.0, 1.0), PQ_M1);
-    ICtCp[0] = pow((PQ_C1 + PQ_C2 * E) / (1.0 + PQ_C3 * E), PQ_M2);
+    ICtCp.x = encodeSignedPQ(vec3(newLuminance / HDR_MAX_LUMINANCE)).x;
 
-    color.rgb = fromLMS * toLinear(vec4(ICtCpPQInv * ICtCp, 1.0), CM_TRANSFER_FUNCTION_ST2084_PQ).rgb * HDR_MAX_LUMINANCE + blackLuminances.y;
+    color.rgb = fromLMS * decodeSignedPQ(ICtCpPQInv * ICtCp) * HDR_MAX_LUMINANCE + blackLuminances.y;
     return vec4(clamp(color.rgb, vec3(0.0), vec3(dstMaxLuminance)), color.a);
 }
