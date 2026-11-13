@@ -537,8 +537,10 @@ static RGBAColor tonemap(RGBAColor color, const Render::SCMSettings& settings) {
         for (size_t channelIndex = 0; channelIndex < 3; ++channelIndex)
             color.v[channelIndex] = (color.v[channelIndex] - settings.srcTFRange.min) * referenceGain + settings.dstTonemapBlack;
     }
-    if (settings.tonemapMode == 2 || settings.maxLuminance <= settings.srcTFRange.min || settings.dstMaxLuminance <= settings.dstTonemapBlack ||
-        srcPeakRatio < dstPeakRatio * 1.01F) {
+    const bool extendedOutput = settings.targetTF == CM_TRANSFER_FUNCTION_LINEAR || settings.targetTF == CM_TRANSFER_FUNCTION_EXT_LINEAR ||
+        settings.targetTF == CM_TRANSFER_FUNCTION_EXT_SRGB || settings.targetTF == CM_TRANSFER_FUNCTION_XVYCC;
+    if (settings.tonemapMode == 2 ||
+        (!extendedOutput && (settings.maxLuminance <= settings.srcTFRange.min || settings.dstMaxLuminance <= settings.dstTonemapBlack || srcPeakRatio < dstPeakRatio * 1.01F))) {
         for (size_t channelIndex = 0; channelIndex < 3; ++channelIndex)
             color.v[channelIndex] = std::clamp(color.v[channelIndex], 0.0, sc<double>(settings.dstMaxLuminance));
     }

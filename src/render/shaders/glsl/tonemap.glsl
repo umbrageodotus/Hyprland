@@ -54,7 +54,8 @@ vec3 decodeSignedPQ(vec3 pqValue) {
     return sign(pqValue) * pow(max(pqMagnitudeRoot - PQ_C1, vec3(0.0)) / denominator, vec3(PQ_INV_M1));
 }
 
-vec4 tonemap(vec4 color, mat3 dstXYZ, float maxLuminance, float dstMaxLuminance, float dstRefLuminance, float srcRefLuminance, int tonemapMode, vec2 blackLuminances) {
+vec4 tonemap(vec4 color, mat3 dstXYZ, float maxLuminance, float dstMaxLuminance, float dstRefLuminance, float srcRefLuminance, int tonemapMode, vec2 blackLuminances,
+             bool extendedOutput) {
     if (tonemapMode == 0)
         return color;
 
@@ -70,7 +71,7 @@ vec4 tonemap(vec4 color, mat3 dstXYZ, float maxLuminance, float dstMaxLuminance,
 
     if (tonemapMode == 2 || srcPeakAboveBlack <= 0.0 || dstPeakAboveBlack <= 0.0 || srcPeakRatio < dstPeakRatio * 1.01) {
         vec3 mapped = (color.rgb - blackLuminances.x) * referenceGain + blackLuminances.y;
-        return vec4(clamp(mapped, vec3(0.0), vec3(dstMaxLuminance)), color.a);
+        return vec4(extendedOutput && tonemapMode != 2 ? mapped : clamp(mapped, vec3(0.0), vec3(dstMaxLuminance)), color.a);
     }
 
     mat3 toLMS   = XYZtoLMS * dstXYZ;
@@ -103,5 +104,5 @@ vec4 tonemap(vec4 color, mat3 dstXYZ, float maxLuminance, float dstMaxLuminance,
     ICtCp.x = encodeSignedPQ(vec3(newLuminance / HDR_MAX_LUMINANCE)).x;
 
     color.rgb = fromLMS * decodeSignedPQ(ICtCpPQInv * ICtCp) * HDR_MAX_LUMINANCE + blackLuminances.y;
-    return vec4(clamp(color.rgb, vec3(0.0), vec3(dstMaxLuminance)), color.a);
+    return vec4(extendedOutput ? color.rgb : clamp(color.rgb, vec3(0.0), vec3(dstMaxLuminance)), color.a);
 }
