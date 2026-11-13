@@ -2165,20 +2165,19 @@ void IHyprRenderer::clearCMSettingsCache(CRenderContext& ctx) {
 SCMSettings IHyprRenderer::getCMSettings(CRenderContext& ctx, const NColorManagement::PImageDescription imageDescription,
                                          const NColorManagement::PImageDescription targetImageDescription, SP<CWLSurfaceResource> surface, bool modifySDR, float sdrMinLuminance,
                                          int sdrMaxLuminance, bool shouldUseSurface) {
-    const auto srcId = imageDescription->id();
-    const auto dstId = targetImageDescription->id();
-    void*      sPtr  = shouldUseSurface ? ctx.m_data.surface.get() : nullptr;
+    const auto srcId       = imageDescription->id();
+    const auto dstId       = targetImageDescription->id();
+    void*      sPtr        = shouldUseSurface ? ctx.m_data.surface.get() : nullptr;
+    const int  tonemapMode = shouldUseSurface && ctx.m_data.currentWindow ? ctx.m_data.currentWindow->m_ruleApplicator->tonemap().valueOr(1) : 1;
 
     for (auto const& entry : ctx.m_cmSettingsCache) {
         if (entry.srcDescId == srcId && entry.dstDescId == dstId && entry.surfacePtr == sPtr && entry.modifySDR == modifySDR && entry.sdrMinLuminance == sdrMinLuminance &&
-            entry.sdrMaxLuminance == sdrMaxLuminance)
+            entry.sdrMaxLuminance == sdrMaxLuminance && entry.tonemapMode == tonemapMode)
             return entry.settings;
     }
 
     const auto                          sdrEOTF = NTransferFunction::fromConfig();
     NColorManagement::eTransferFunction srcTF;
-
-    const int                           tonemapMode = shouldUseSurface && ctx.m_data.currentWindow ? ctx.m_data.currentWindow->m_ruleApplicator->tonemap().valueOr(1) : 1;
 
     if (shouldUseSurface && ctx.m_data.surface.valid() &&
         (imageDescription->value().transferFunction == CM_TRANSFER_FUNCTION_GAMMA22 || imageDescription->value().transferFunction == CM_TRANSFER_FUNCTION_SRGB)) {
@@ -2241,6 +2240,7 @@ SCMSettings IHyprRenderer::getCMSettings(CRenderContext& ctx, const NColorManage
         .modifySDR       = modifySDR,
         .sdrMinLuminance = sdrMinLuminance,
         .sdrMaxLuminance = sdrMaxLuminance,
+        .tonemapMode     = tonemapMode,
         .settings        = result,
     });
 
