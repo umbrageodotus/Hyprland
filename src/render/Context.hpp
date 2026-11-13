@@ -68,8 +68,7 @@ namespace Render {
 
         struct SCMSettingsCacheEntry {
             uint64_t    srcDescId = 0, dstDescId = 0;
-            void*       surfacePtr      = nullptr; // read-only!!
-            bool        modifySDR       = false;
+            bool        modifySDRRange  = false;
             float       sdrMinLuminance = -1.F;
             int         sdrMaxLuminance = -1;
             SCMSettings settings;
