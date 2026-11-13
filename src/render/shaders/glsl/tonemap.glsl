@@ -41,14 +41,30 @@ const mat3 ICtCpPQInv = mat3(                                                //
 // ) / 4096.0);
 // const mat3 ICtCpHLGInv = inverse(ICtCpHLG);
 
-vec4 tonemap(vec4 color, mat3 dstXYZ, float maxLuminance, float dstMaxLuminance, float dstRefLuminance, float srcRefLuminance, int tonemapMode) {
-    if (maxLuminance < dstMaxLuminance * 1.01 || tonemapMode == 2)
-        return vec4(clamp(color.rgb, vec3(0.0), vec3(dstMaxLuminance)), color[3]);
+vec4 tonemap(vec4 color, mat3 dstXYZ, float maxLuminance, float dstMaxLuminance, float dstRefLuminance, float srcRefLuminance, int tonemapMode, vec2 blackLuminances) {
+    if (tonemapMode == 0)
+        return color;
 
-    mat3  toLMS   = BT2020toLMS * dstXYZ;
-    mat3  fromLMS = inverse(dstXYZ) * LMStoBT2020;
+    srcRefLuminance         = max(srcRefLuminance, 0.001);
+    dstRefLuminance         = max(dstRefLuminance, 0.001);
+    float srcReferenceSpan  = max(srcRefLuminance - blackLuminances.x, 0.001);
+    float dstReferenceSpan  = max(dstRefLuminance - blackLuminances.y, 0.001);
+    float srcPeakAboveBlack = max(maxLuminance - blackLuminances.x, 0.0);
+    float dstPeakAboveBlack = max(dstMaxLuminance - blackLuminances.y, 0.0);
+    float srcPeakRatio      = srcPeakAboveBlack / srcReferenceSpan;
+    float dstPeakRatio      = dstPeakAboveBlack / dstReferenceSpan;
+    float referenceGain     = dstReferenceSpan / srcReferenceSpan;
 
-    vec3  lms   = fromLinear(vec4((toLMS * color.rgb) / HDR_MAX_LUMINANCE, 1.0), CM_TRANSFER_FUNCTION_ST2084_PQ).rgb;
+    if (tonemapMode == 2 || srcPeakAboveBlack <= 0.0 || dstPeakAboveBlack <= 0.0 || srcPeakRatio < dstPeakRatio * 1.01) {
+        vec3 mapped = (color.rgb - blackLuminances.x) * referenceGain + blackLuminances.y;
+        return vec4(clamp(mapped, vec3(0.0), vec3(dstMaxLuminance)), color.a);
+    }
+
+    mat3 toLMS   = BT2020toLMS * dstXYZ;
+    mat3 fromLMS = inverse(dstXYZ) * LMStoBT2020;
+
+    // Transform black-relative RGB so the nonlinear conversion preserves the black endpoint.
+    vec3  lms   = fromLinear(vec4((toLMS * (color.rgb - blackLuminances.x)) / HDR_MAX_LUMINANCE, 1.0), CM_TRANSFER_FUNCTION_ST2084_PQ).rgb;
     vec3  ICtCp = ICtCpPQ * lms;
 
     float E         = pow(clamp(ICtCp[0], 0.0, 1.0), PQ_INV_M2);
@@ -57,25 +73,24 @@ vec4 tonemap(vec4 color, mat3 dstXYZ, float maxLuminance, float dstMaxLuminance,
     float newLuminance;
 #if USE_ALT_TONEMAP
     // suggested by LionHeartP
-    newLuminance    = luminance;
-    float kneeRatio = clamp(dstMaxLuminance / maxLuminance, 0.5, 0.85);
-    float knee      = dstMaxLuminance * kneeRatio;
-    if (luminance > knee) {
-        float alpha  = (maxLuminance - dstMaxLuminance) / ((maxLuminance - knee) * (dstMaxLuminance - knee));
-        newLuminance = knee + (luminance - knee) / (1.0 + alpha * (luminance - knee));
+    float mappedLuminance      = luminance * referenceGain;
+    float mappedPeakAboveBlack = srcPeakAboveBlack * referenceGain;
+    newLuminance               = mappedLuminance;
+    float kneeRatio            = clamp(dstPeakAboveBlack / mappedPeakAboveBlack, 0.5, 0.85);
+    float knee                 = dstPeakAboveBlack * kneeRatio;
+    if (mappedLuminance > knee) {
+        float alpha  = (mappedPeakAboveBlack - dstPeakAboveBlack) / ((mappedPeakAboveBlack - knee) * (dstPeakAboveBlack - knee));
+        newLuminance = knee + (mappedLuminance - knee) / (1.0 + alpha * (mappedLuminance - knee));
     }
 #else
-    float luminanceRatio = max(luminance / dstRefLuminance, 0.0);
-    float srcScale       = maxLuminance / dstRefLuminance;
-    float dstScale       = dstMaxLuminance / dstRefLuminance;
-    float v              = (dstScale * (1.0 + srcScale) - srcScale) / pow(srcScale, 2.0);
-    newLuminance         = (luminanceRatio * (1.0 + luminanceRatio * v) / (1.0 + luminanceRatio)) * dstRefLuminance;
+    float luminanceRatio   = max(luminance / srcReferenceSpan, 0.0);
+    float curveCoefficient = (dstPeakRatio * (1.0 + srcPeakRatio) - srcPeakRatio) / pow(srcPeakRatio, 2.0);
+    newLuminance           = (luminanceRatio * (1.0 + luminanceRatio * curveCoefficient) / (1.0 + luminanceRatio)) * dstReferenceSpan;
 #endif
 
     E        = pow(clamp(newLuminance / HDR_MAX_LUMINANCE, 0.0, 1.0), PQ_M1);
     ICtCp[0] = pow((PQ_C1 + PQ_C2 * E) / (1.0 + PQ_C3 * E), PQ_M2);
 
-    color = vec4(fromLMS * toLinear(vec4(ICtCpPQInv * ICtCp, 1.0), CM_TRANSFER_FUNCTION_ST2084_PQ).rgb * HDR_MAX_LUMINANCE, color[3]);
-
-    return clamp(color, 0.0, dstMaxLuminance);
+    color.rgb = fromLMS * toLinear(vec4(ICtCpPQInv * ICtCp, 1.0), CM_TRANSFER_FUNCTION_ST2084_PQ).rgb * HDR_MAX_LUMINANCE + blackLuminances.y;
+    return vec4(clamp(color.rgb, vec3(0.0), vec3(dstMaxLuminance)), color.a);
 }

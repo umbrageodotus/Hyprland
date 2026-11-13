@@ -2163,7 +2163,7 @@ void IHyprRenderer::clearCMSettingsCache(CRenderContext& ctx) {
 
 SCMSettings IHyprRenderer::getCMSettings(CRenderContext& ctx, const NColorManagement::PImageDescription imageDescription,
                                          const NColorManagement::PImageDescription targetImageDescription, SP<CWLSurfaceResource> surface, bool modifySDR, float sdrMinLuminance,
-                                         int sdrMaxLuminance, bool shouldUseSurface) {
+                                         int sdrMaxLuminance, bool shouldUseSurface, bool preserveLuminance) {
     const auto srcId       = imageDescription->id();
     const auto dstId       = targetImageDescription->id();
     const int  tonemapMode = shouldUseSurface && ctx.m_data.currentWindow ? ctx.m_data.currentWindow->m_ruleApplicator->tonemap().valueOr(1) : 1;
@@ -2189,46 +2189,38 @@ SCMSettings IHyprRenderer::getCMSettings(CRenderContext& ctx, const NColorManage
 
     for (const auto& entry : ctx.m_cmSettingsCache) {
         if (entry.srcDescId == srcId && entry.dstDescId == dstId && entry.settings.sourceTF == srcTF && entry.settings.tonemapMode == tonemapMode &&
-            entry.modifySDRRange == modifySDRRange && entry.sdrMinLuminance == sdrMinLuminance && entry.sdrMaxLuminance == sdrMaxLuminance &&
-            entry.settings.sdrSaturation == sdrSaturation && entry.settings.sdrBrightnessMultiplier == sdrBrightness)
+            entry.modifySDRRange == modifySDRRange && entry.preserveLuminance == preserveLuminance && entry.sdrMinLuminance == sdrMinLuminance &&
+            entry.sdrMaxLuminance == sdrMaxLuminance && entry.settings.sdrSaturation == sdrSaturation && entry.settings.sdrBrightnessMultiplier == sdrBrightness)
             return entry.settings;
     }
-    const float maxLuminance    = imageDescription->value().getContentMaxLuminance(imageDescription->value().luminances.max > 0 ? imageDescription->value().luminances.max :
-                                                                                                                                  imageDescription->value().luminances.reference);
-    const auto  dstMaxLuminance = targetImageDescription->value().luminances.max > 0 ? targetImageDescription->value().luminances.max : 10000;
+    auto convertMatrix = imageDescription->getPrimaries()->convertMatrix(targetImageDescription->getPrimaries());
+    auto result        = SCMSettings{
+        .sourceTF   = srcTF,
+        .targetTF   = targetImageDescription->value().transferFunction,
+        .srcTFRange = {.min = srcTF == CM_TRANSFER_FUNCTION_LINEAR ? 0.0F : imageDescription->value().getTFMinLuminance(sdrMinLuminance),
+                       .max = imageDescription->value().getTFMaxLuminance(sdrMaxLuminance)},
+        .dstTFRange = {.min = targetImageDescription->value().transferFunction == CM_TRANSFER_FUNCTION_LINEAR ? 0.0F :
+                                                                                                                targetImageDescription->value().getTFMinLuminance(sdrMinLuminance),
+                       .max = targetImageDescription->value().getTFMaxLuminance(sdrMaxLuminance)},
+        .convertMatrix = convertMatrix.mat(),
 
-    auto        matrix = imageDescription->getPrimaries()->convertMatrix(targetImageDescription->getPrimaries());
-    auto        toXYZ  = targetImageDescription->getPrimaries()->value().toXYZ();
-
-    const bool  needsTonemap = maxLuminance >= dstMaxLuminance * 1.01;
-
-    auto        result = SCMSettings{
-        .sourceTF        = srcTF,
-        .targetTF        = targetImageDescription->value().transferFunction,
-        .srcTFRange      = {.min = imageDescription->value().getTFMinLuminance(sdrMinLuminance), .max = imageDescription->value().getTFMaxLuminance(sdrMaxLuminance)},
-        .dstTFRange      = {.min = targetImageDescription->value().getTFMinLuminance(sdrMinLuminance), .max = targetImageDescription->value().getTFMaxLuminance(sdrMaxLuminance)},
-        .srcRefLuminance = imageDescription->value().luminances.reference,
-        .dstRefLuminance = targetImageDescription->value().luminances.reference,
-        .convertMatrix   = matrix.mat(),
-
-        .needsTonemap            = tonemapMode != 0 && needsTonemap,
         .tonemapMode             = tonemapMode,
-        .maxLuminance            = needsTonemap && tonemapMode == 2 ? dstMaxLuminance :
-                                                                      maxLuminance * targetImageDescription->value().luminances.reference / imageDescription->value().luminances.reference,
-        .dstMaxLuminance         = dstMaxLuminance,
-        .dstPrimaries2XYZ        = toXYZ.mat(),
+        .dstPrimaries2XYZ        = targetImageDescription->getPrimaries()->value().toXYZ().mat(),
         .needsSDRmod             = sdrSaturation != 1.F || sdrBrightness != 1.F,
         .sdrSaturation           = sdrSaturation,
         .sdrBrightnessMultiplier = sdrBrightness,
     };
 
+    setTonemapSettings(result, imageDescription->value(), targetImageDescription->value(), modifySDRRange, preserveLuminance);
+
     ctx.m_cmSettingsCache.push_back({
-        .srcDescId       = srcId,
-        .dstDescId       = dstId,
-        .modifySDRRange  = modifySDRRange,
-        .sdrMinLuminance = sdrMinLuminance,
-        .sdrMaxLuminance = sdrMaxLuminance,
-        .settings        = result,
+        .srcDescId         = srcId,
+        .dstDescId         = dstId,
+        .modifySDRRange    = modifySDRRange,
+        .preserveLuminance = preserveLuminance,
+        .sdrMinLuminance   = sdrMinLuminance,
+        .sdrMaxLuminance   = sdrMaxLuminance,
+        .settings          = result,
     });
 
     return result;
