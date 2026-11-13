@@ -243,7 +243,9 @@ vec4
     if (srcTF != CM_TRANSFER_FUNCTION_LINEAR)
         pixColor = toNit(pixColor, srcTFRange);
 #if USE_TONEMAP
-    pixColor = tonemap(pixColor, dstxyz, maxLuminance, dstMaxLuminance, dstRefLuminance, srcRefLuminance, tonemapMode, vec2(srcTFRange.x, dstTonemapBlack));
+    bool extendedOutput =
+        dstTF == CM_TRANSFER_FUNCTION_LINEAR || dstTF == CM_TRANSFER_FUNCTION_EXT_LINEAR || dstTF == CM_TRANSFER_FUNCTION_EXT_SRGB || dstTF == CM_TRANSFER_FUNCTION_XVYCC;
+    pixColor = tonemap(pixColor, dstxyz, maxLuminance, dstMaxLuminance, dstRefLuminance, srcRefLuminance, tonemapMode, vec2(srcTFRange.x, dstTonemapBlack), extendedOutput);
 #endif
     pixColor.a   = finalAlpha;
     pixColor.rgb *= pixColor.a;
