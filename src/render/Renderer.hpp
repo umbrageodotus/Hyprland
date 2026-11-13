@@ -241,7 +241,7 @@ namespace Render {
 
         SCMSettings getCMSettings(CRenderContext& ctx, const NColorManagement::PImageDescription imageDescription, const NColorManagement::PImageDescription targetImageDescription,
                                   SP<CWLSurfaceResource> surface = nullptr, bool modifySDR = false, float sdrMinLuminance = -1.0f, int sdrMaxLuminance = -1,
-                                  bool shouldUseSurface = false);
+                                  bool shouldUseSurface = false, bool preserveLuminance = false);
         void        clearCMSettingsCache(CRenderContext& ctx);
         virtual bool reloadShaders(const std::string& path = "") = 0;
 

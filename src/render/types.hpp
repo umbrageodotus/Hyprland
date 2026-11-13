@@ -138,6 +138,7 @@ namespace Render {
         int                                  tonemapMode     = 1; // 1 - default, 2 - clamp, 3 - limited
         float                                maxLuminance    = 80;
         float                                dstMaxLuminance = 80;
+        float                                dstTonemapBlack = 0;
         std::array<std::array<double, 3>, 3> dstPrimaries2XYZ;
         bool                                 needsSDRmod             = false;
         float                                sdrSaturation           = 1.0;

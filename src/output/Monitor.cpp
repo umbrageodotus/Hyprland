@@ -2503,6 +2503,7 @@ bool CMonitor::canNoShaderCM(bool forDSmode) {
             && SRC_DESC_VALUE.transferFunctionPower == DST_DESC->value().transferFunctionPower       //
             && SRC_DESC_VALUE.getTFMinLuminance() == DST_DESC->value().getTFMinLuminance()           //
             && SRC_DESC_VALUE.getTFMaxLuminance() == DST_DESC->value().getTFMaxLuminance()           //
+            && SRC_DESC_VALUE.luminances.reference == DST_DESC->value().luminances.reference         //
             && SRC_DESC_VALUE.getContentMaxLuminance() == DST_DESC->value().getContentMaxLuminance() //
             && (!inHDR() || SRC_DESC_VALUE.luminances == DST_DESC->value().luminances));
 }

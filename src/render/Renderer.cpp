@@ -2151,98 +2151,75 @@ static bool isSDR2HDR(CRenderContext& ctx, const NColorManagement::SImageDescrip
           ctx.m_data.pMonitor->m_imageDescription->value().transferFunction == NColorManagement::CM_TRANSFER_FUNCTION_ST2084_PQ));
 }
 
-static bool isHDR2SDR(const NColorManagement::SImageDescription& imageDescription, const NColorManagement::SImageDescription& targetImageDescription) {
-    // might be too strict
-    return (imageDescription.transferFunction == NColorManagement::CM_TRANSFER_FUNCTION_ST2084_PQ ||
-            imageDescription.transferFunction == NColorManagement::CM_TRANSFER_FUNCTION_HLG) &&
-        (targetImageDescription.transferFunction == NColorManagement::CM_TRANSFER_FUNCTION_SRGB ||
-         targetImageDescription.transferFunction == NColorManagement::CM_TRANSFER_FUNCTION_GAMMA22);
-}
-
 void IHyprRenderer::clearCMSettingsCache(CRenderContext& ctx) {
     ctx.m_cmSettingsCache.clear();
 }
 
 SCMSettings IHyprRenderer::getCMSettings(CRenderContext& ctx, const NColorManagement::PImageDescription imageDescription,
                                          const NColorManagement::PImageDescription targetImageDescription, SP<CWLSurfaceResource> surface, bool modifySDR, float sdrMinLuminance,
-                                         int sdrMaxLuminance, bool shouldUseSurface) {
+                                         int sdrMaxLuminance, bool shouldUseSurface, bool preserveLuminance) {
     const auto srcId       = imageDescription->id();
     const auto dstId       = targetImageDescription->id();
-    void*      sPtr        = shouldUseSurface ? ctx.m_data.surface.get() : nullptr;
+    void*      surfacePtr  = shouldUseSurface ? ctx.m_data.surface.get() : nullptr;
     const int  tonemapMode = shouldUseSurface && ctx.m_data.currentWindow ? ctx.m_data.currentWindow->m_ruleApplicator->tonemap().valueOr(1) : 1;
 
     for (auto const& entry : ctx.m_cmSettingsCache) {
-        if (entry.srcDescId == srcId && entry.dstDescId == dstId && entry.surfacePtr == sPtr && entry.modifySDR == modifySDR && entry.sdrMinLuminance == sdrMinLuminance &&
-            entry.sdrMaxLuminance == sdrMaxLuminance && entry.tonemapMode == tonemapMode)
+        if (entry.srcDescId == srcId && entry.dstDescId == dstId && entry.surfacePtr == surfacePtr && entry.modifySDR == modifySDR && entry.sdrMinLuminance == sdrMinLuminance &&
+            entry.sdrMaxLuminance == sdrMaxLuminance && entry.tonemapMode == tonemapMode && entry.preserveLuminance == preserveLuminance)
             return entry.settings;
     }
 
-    const auto                          sdrEOTF = NTransferFunction::fromConfig();
-    NColorManagement::eTransferFunction srcTF;
+    const auto sdrEOTF = NTransferFunction::fromConfig();
+    auto       srcTF   = imageDescription->value().transferFunction;
 
     if (shouldUseSurface && ctx.m_data.surface.valid() &&
         (imageDescription->value().transferFunction == CM_TRANSFER_FUNCTION_GAMMA22 || imageDescription->value().transferFunction == CM_TRANSFER_FUNCTION_SRGB)) {
         if (ctx.m_data.surface->m_colorManagement.valid()) {
             if (sdrEOTF == NTransferFunction::TF_FORCED_GAMMA22 && imageDescription->value().transferFunction == NColorManagement::eTransferFunction::CM_TRANSFER_FUNCTION_SRGB)
                 srcTF = NColorManagement::eTransferFunction::CM_TRANSFER_FUNCTION_GAMMA22;
-            else
-                srcTF = imageDescription->value().transferFunction;
         } else if (sdrEOTF == NTransferFunction::TF_SRGB)
             srcTF = NColorManagement::eTransferFunction::CM_TRANSFER_FUNCTION_SRGB;
         else if (sdrEOTF == NTransferFunction::TF_GAMMA22 || sdrEOTF == NTransferFunction::TF_FORCED_GAMMA22)
             srcTF = NColorManagement::eTransferFunction::CM_TRANSFER_FUNCTION_GAMMA22;
-        else
-            srcTF = imageDescription->value().transferFunction;
-    } else
-        srcTF = imageDescription->value().transferFunction;
+    }
 
-    const bool  needsSDRmod     = modifySDR && isSDR2HDR(ctx, imageDescription->value(), targetImageDescription->value());
-    const bool  needsHDRmod     = !needsSDRmod && isHDR2SDR(imageDescription->value(), targetImageDescription->value());
-    const float maxLuminance    = needsHDRmod ?
-        imageDescription->value().getTFMaxLuminance(-1) :
-        (imageDescription->value().luminances.max > 0 ? imageDescription->value().luminances.max : imageDescription->value().luminances.reference);
-    const auto  dstMaxLuminance = targetImageDescription->value().luminances.max > 0 ? targetImageDescription->value().luminances.max : 10000;
+    const bool modifySDRRange = modifySDR && isSDR2HDR(ctx, imageDescription->value(), targetImageDescription->value());
 
-    auto        matrix = imageDescription->getPrimaries()->convertMatrix(targetImageDescription->getPrimaries());
-    auto        toXYZ  = targetImageDescription->getPrimaries()->value().toXYZ();
-
-    const bool  needsMod = needsSDRmod &&
+    const bool needsSDRmod = modifySDRRange &&
         ((ctx.m_data.pMonitor->m_sdrSaturation > 0 && ctx.m_data.pMonitor->m_sdrSaturation != 1.0f) ||
          (ctx.m_data.pMonitor->m_sdrBrightness > 0 && ctx.m_data.pMonitor->m_sdrBrightness != 1.0f));
 
-    const bool needsTonemap = maxLuminance >= dstMaxLuminance * 1.01;
+    auto convertMatrix = imageDescription->getPrimaries()->convertMatrix(targetImageDescription->getPrimaries());
+    auto result        = SCMSettings{
+        .sourceTF      = srcTF,
+        .targetTF      = targetImageDescription->value().transferFunction,
+        .srcTFRange    = {.min = srcTF == CM_TRANSFER_FUNCTION_LINEAR ? 0.0F : imageDescription->value().getTFMinLuminance(modifySDRRange ? sdrMinLuminance : -1),
+                          .max = imageDescription->value().getTFMaxLuminance(modifySDRRange ? sdrMaxLuminance : -1)},
+        .dstTFRange    = {.min = targetImageDescription->value().transferFunction == CM_TRANSFER_FUNCTION_LINEAR ?
+                              0.0F :
+                              targetImageDescription->value().getTFMinLuminance(modifySDRRange ? sdrMinLuminance : -1),
+                          .max = targetImageDescription->value().getTFMaxLuminance(modifySDRRange ? sdrMaxLuminance : -1)},
+        .convertMatrix = convertMatrix.mat(),
 
-    auto       result = SCMSettings{
-        .sourceTF        = srcTF,
-        .targetTF        = targetImageDescription->value().transferFunction,
-        .srcTFRange      = {.min = imageDescription->value().getTFMinLuminance(needsSDRmod ? sdrMinLuminance : -1),
-                            .max = imageDescription->value().getTFMaxLuminance(needsSDRmod ? sdrMaxLuminance : -1)},
-        .dstTFRange      = {.min = targetImageDescription->value().getTFMinLuminance(needsSDRmod ? sdrMinLuminance : -1),
-                            .max = targetImageDescription->value().getTFMaxLuminance(needsSDRmod ? sdrMaxLuminance : -1)},
-        .srcRefLuminance = imageDescription->value().luminances.reference,
-        .dstRefLuminance = targetImageDescription->value().luminances.reference,
-        .convertMatrix   = matrix.mat(),
-
-        .needsTonemap            = tonemapMode != 0 && needsTonemap,
         .tonemapMode             = tonemapMode,
-        .maxLuminance            = needsTonemap && tonemapMode == 2 ? dstMaxLuminance :
-                                                                      maxLuminance * targetImageDescription->value().luminances.reference / imageDescription->value().luminances.reference,
-        .dstMaxLuminance         = dstMaxLuminance,
-        .dstPrimaries2XYZ        = toXYZ.mat(),
-        .needsSDRmod             = needsMod,
-        .sdrSaturation           = needsSDRmod && ctx.m_data.pMonitor->m_sdrSaturation > 0 ? ctx.m_data.pMonitor->m_sdrSaturation : 1.0f,
-        .sdrBrightnessMultiplier = needsSDRmod && ctx.m_data.pMonitor->m_sdrBrightness > 0 ? ctx.m_data.pMonitor->m_sdrBrightness : 1.0f,
+        .dstPrimaries2XYZ        = targetImageDescription->getPrimaries()->value().toXYZ().mat(),
+        .needsSDRmod             = needsSDRmod,
+        .sdrSaturation           = modifySDRRange && ctx.m_data.pMonitor->m_sdrSaturation > 0 ? ctx.m_data.pMonitor->m_sdrSaturation : 1.0f,
+        .sdrBrightnessMultiplier = modifySDRRange && ctx.m_data.pMonitor->m_sdrBrightness > 0 ? ctx.m_data.pMonitor->m_sdrBrightness : 1.0f,
     };
 
+    setTonemapSettings(result, imageDescription->value(), targetImageDescription->value(), modifySDRRange, preserveLuminance);
+
     ctx.m_cmSettingsCache.push_back({
-        .srcDescId       = srcId,
-        .dstDescId       = dstId,
-        .surfacePtr      = sPtr,
-        .modifySDR       = modifySDR,
-        .sdrMinLuminance = sdrMinLuminance,
-        .sdrMaxLuminance = sdrMaxLuminance,
-        .tonemapMode     = tonemapMode,
-        .settings        = result,
+        .srcDescId         = srcId,
+        .dstDescId         = dstId,
+        .surfacePtr        = surfacePtr,
+        .modifySDR         = modifySDR,
+        .preserveLuminance = preserveLuminance,
+        .sdrMinLuminance   = sdrMinLuminance,
+        .sdrMaxLuminance   = sdrMaxLuminance,
+        .tonemapMode       = tonemapMode,
+        .settings          = result,
     });
 
     return result;
@@ -3755,7 +3732,7 @@ SP<ITexture> IHyprRenderer::renderSplash(const std::function<SP<ITexture>(const 
     return tex;
 }
 
-using ColorConversionKey = std::tuple<float, float, float, float, uint64_t, float, float, float, float, bool, float, float, float, float, float, float, bool, int>;
+using ColorConversionKey = std::tuple<float, float, float, float, uint64_t, float, float, float, float, bool, float, float, float, float, float, float, bool, int, float>;
 
 struct SColorConversionKeyHash {
     size_t operator()(const ColorConversionKey& key) const {
@@ -3813,6 +3790,7 @@ CHyprColor IHyprRenderer::getConvertedColor(CRenderContext& ctx, const CHyprColo
         settings.dstMaxLuminance,
         settings.needsTonemap,
         settings.tonemapMode,
+        settings.dstTonemapBlack,
     };
 
     if (const auto IT = colorConversionCache.find(key); IT != colorConversionCache.end())

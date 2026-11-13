@@ -87,6 +87,36 @@ float SImageDescription::getContentMaxLuminance() const {
     return luminances.max > 0 ? luminances.max : luminances.reference;
 }
 
+void NColorManagement::setTonemapSettings(Render::SCMSettings& settings, const SImageDescription& source, const SImageDescription& target, bool modifiedSDRRange,
+                                          bool preserveLuminance) {
+    settings.maxLuminance    = source.getContentMaxLuminance();
+    settings.dstMaxLuminance = target.luminances.max > 0 ? target.luminances.max : HDR_MAX_LUMINANCE;
+    settings.srcRefLuminance = source.luminances.reference;
+    settings.dstRefLuminance = target.luminances.reference;
+    settings.dstTonemapBlack = modifiedSDRRange || preserveLuminance ? settings.srcTFRange.min : settings.dstTFRange.min;
+
+    if (modifiedSDRRange) {
+        const float srcBlackLuminance = source.getTFMinLuminance();
+        const float sdrLuminanceScale = (settings.srcTFRange.max - settings.srcTFRange.min) / (source.getTFMaxLuminance() - srcBlackLuminance);
+        settings.maxLuminance         = (settings.maxLuminance - srcBlackLuminance) * sdrLuminanceScale + settings.srcTFRange.min;
+        settings.srcRefLuminance      = (settings.srcRefLuminance - srcBlackLuminance) * sdrLuminanceScale + settings.srcTFRange.min;
+        settings.dstRefLuminance      = settings.srcRefLuminance;
+    }
+
+    settings.srcRefLuminance = std::max(settings.srcRefLuminance, 0.001F);
+    settings.dstRefLuminance = std::max(settings.dstRefLuminance, 0.001F);
+
+    if (settings.tonemapMode == 0) {
+        settings.needsTonemap = false;
+        return;
+    }
+
+    const float srcPeakRatio = std::max(settings.maxLuminance - settings.srcTFRange.min, 0.0F) / std::max(settings.srcRefLuminance - settings.srcTFRange.min, 0.001F);
+    const float dstPeakRatio = std::max(settings.dstMaxLuminance - settings.dstTonemapBlack, 0.0F) / std::max(settings.dstRefLuminance - settings.dstTonemapBlack, 0.001F);
+    settings.needsTonemap    = settings.tonemapMode == 2 || preserveLuminance || settings.srcRefLuminance != settings.dstRefLuminance ||
+        settings.srcTFRange.min != settings.dstTonemapBlack || srcPeakRatio >= dstPeakRatio * 1.01F;
+}
+
 CImageDescription::CImageDescription(const SImageDescription& imageDescription, const uint64_t imageDescriptionId) :
     m_id(imageDescriptionId), m_imageDescription(imageDescription) {
     m_primariesId = CPrimaries::from(m_imageDescription.getPrimaries())->id();
@@ -493,8 +523,26 @@ static RGBAColor saturate(RGBAColor color, std::array<std::array<double, 3>, 3> 
     return color;
 }
 
-static RGBAColor tonemap(RGBAColor color, std::array<std::array<double, 3>, 3> dstXYZ, float maxLuminance, float dstMaxLuminance, float dstRefLuminance, float srcRefLuminance) {
-    // TODO source color is expected to be in sRGB colorspace and tonemapping shouldn't be needed
+static RGBAColor tonemap(RGBAColor color, const Render::SCMSettings& settings) {
+    if (settings.tonemapMode == 0)
+        return color;
+
+    const float srcReferenceSpan = std::max(std::max(settings.srcRefLuminance, 0.001F) - settings.srcTFRange.min, 0.001F);
+    const float dstReferenceSpan = std::max(std::max(settings.dstRefLuminance, 0.001F) - settings.dstTonemapBlack, 0.001F);
+    const float srcPeakRatio     = std::max(settings.maxLuminance - settings.srcTFRange.min, 0.0F) / srcReferenceSpan;
+    const float dstPeakRatio     = std::max(settings.dstMaxLuminance - settings.dstTonemapBlack, 0.0F) / dstReferenceSpan;
+
+    if (std::max(settings.srcRefLuminance, 0.001F) != std::max(settings.dstRefLuminance, 0.001F) || settings.srcTFRange.min != settings.dstTonemapBlack) {
+        const double referenceGain = sc<double>(dstReferenceSpan) / srcReferenceSpan;
+        for (size_t channelIndex = 0; channelIndex < 3; ++channelIndex)
+            color.v[channelIndex] = (color.v[channelIndex] - settings.srcTFRange.min) * referenceGain + settings.dstTonemapBlack;
+    }
+    if (settings.tonemapMode == 2 || settings.maxLuminance <= settings.srcTFRange.min || settings.dstMaxLuminance <= settings.dstTonemapBlack ||
+        srcPeakRatio < dstPeakRatio * 1.01F) {
+        for (size_t channelIndex = 0; channelIndex < 3; ++channelIndex)
+            color.v[channelIndex] = std::clamp(color.v[channelIndex], 0.0, sc<double>(settings.dstMaxLuminance));
+    }
+    // TODO implement highlight compression for CPU color conversion.
     return color;
 }
 
@@ -513,7 +561,7 @@ RGBAColor NColorManagement::convertColor(RGBAColor color, PImageDescription srcD
         if (srcDesc->value().transferFunction != CM_TRANSFER_FUNCTION_LINEAR)
             color = toNit(color, settings.srcTFRange);
         if (settings.needsTonemap)
-            color = tonemap(color, settings.dstPrimaries2XYZ, settings.maxLuminance, settings.dstMaxLuminance, settings.dstRefLuminance, settings.srcRefLuminance);
+            color = tonemap(color, settings);
         color *= color.c.a;
 
         if (settings.needsSDRmod && settings.sdrBrightnessMultiplier != 1.0F) {

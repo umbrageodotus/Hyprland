@@ -1295,6 +1295,7 @@ void CHyprOpenGLImpl::passCMUniforms(WP<CShader> shader, const NColorManagement:
     shader->setUniformFloat(SHADER_MAX_LUMINANCE, settings.maxLuminance);
     shader->setUniformFloat(SHADER_DST_MAX_LUMINANCE, settings.dstMaxLuminance);
     shader->setUniformInt(SHADER_TONEMAP_MODE, settings.tonemapMode);
+    shader->setUniformFloat(SHADER_DST_TONEMAP_BLACK, settings.dstTonemapBlack);
     shader->setUniformFloat(SHADER_SDR_SATURATION, settings.sdrSaturation);
     shader->setUniformFloat(SHADER_SDR_BRIGHTNESS, settings.sdrBrightnessMultiplier);
 
@@ -1521,8 +1522,12 @@ WP<CShader> CHyprOpenGLImpl::renderToFBInternal(CRenderContext& ctx, SP<ITexture
         shaderFeatures |= SH_FEAT_ROUNDING;
 
     if (!skipCM) {
+        const bool preserveLuminance = data.finalMonitorCM && SOURCE_IMAGE_DESCRIPTION == WORK_BUFFER_IMAGE_DESCRIPTION &&
+            SOURCE_IMAGE_DESCRIPTION->value().transferFunction == CM_TRANSFER_FUNCTION_EXT_LINEAR &&
+            (TARGET_IMAGE_DESCRIPTION->value().transferFunction == CM_TRANSFER_FUNCTION_ST2084_PQ || TARGET_IMAGE_DESCRIPTION->value().transferFunction == CM_TRANSFER_FUNCTION_HLG) &&
+            SOURCE_IMAGE_DESCRIPTION->value().luminances == TARGET_IMAGE_DESCRIPTION->value().luminances;
         const auto settings = g_pHyprRenderer->getCMSettings(ctx, SOURCE_IMAGE_DESCRIPTION, TARGET_IMAGE_DESCRIPTION, surface.valid() ? surface.lock() : nullptr, true,
-                                                             ctx.m_data.pMonitor->m_sdrMinLuminance, ctx.m_data.pMonitor->m_sdrMaxLuminance, true);
+                                                             ctx.m_data.pMonitor->m_sdrMinLuminance, ctx.m_data.pMonitor->m_sdrMaxLuminance, true, preserveLuminance);
 
         shaderFeatures |= SH_FEAT_CM;
 

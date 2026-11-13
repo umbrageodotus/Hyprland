@@ -385,6 +385,9 @@ namespace NColorManagement {
 
     using PImageDescription = WP<const CImageDescription>;
 
+    void              setTonemapSettings(Render::SCMSettings& settings, const SImageDescription& source, const SImageDescription& target, bool modifiedSDRRange,
+                                         bool preserveLuminance = false);
+
     RGBAColor         convertColor(RGBAColor color, PImageDescription srcDesc, PImageDescription dstDesc, const Render::SCMSettings& settings);
     CHyprColor        convertColor(const CHyprColor& color, PImageDescription srcDesc, PImageDescription dstDesc, const Render::SCMSettings& settings);
 

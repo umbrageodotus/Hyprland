@@ -68,11 +68,12 @@ namespace Render {
 
         struct SCMSettingsCacheEntry {
             uint64_t    srcDescId = 0, dstDescId = 0;
-            void*       surfacePtr      = nullptr; // read-only!!
-            bool        modifySDR       = false;
-            float       sdrMinLuminance = -1.F;
-            int         sdrMaxLuminance = -1;
-            int         tonemapMode     = 1;
+            void*       surfacePtr        = nullptr; // read-only!!
+            bool        modifySDR         = false;
+            bool        preserveLuminance = false;
+            float       sdrMinLuminance   = -1.F;
+            int         sdrMaxLuminance   = -1;
+            int         tonemapMode       = 1;
             SCMSettings settings;
         };
         std::vector<SCMSettingsCacheEntry> m_cmSettingsCache;

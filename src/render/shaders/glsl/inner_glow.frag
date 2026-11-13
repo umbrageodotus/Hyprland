@@ -59,7 +59,7 @@ void main() {
 #endif
 #if USE_TONEMAP
                      ,
-                     maxLuminance, dstMaxLuminance, dstRefLuminance, srcRefLuminance, tonemapMode
+                     maxLuminance, dstMaxLuminance, dstRefLuminance, srcRefLuminance, tonemapMode, dstTonemapBlack
 #endif
 #if USE_SDR_MOD
                      ,
