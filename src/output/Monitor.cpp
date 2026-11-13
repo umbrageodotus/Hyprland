@@ -2059,7 +2059,7 @@ bool CMonitor::attemptDirectScanout() {
     // and comes from the appropriate device. This may implode on multi-gpu!!
 
     // entering into scanout, so save monitor format
-    if (m_lastScanout.expired())
+    if (!m_directScanoutIsActive)
         m_prevDrmFormat = m_drmFormat;
 
     const auto  previousFormat           = m_drmFormat;
