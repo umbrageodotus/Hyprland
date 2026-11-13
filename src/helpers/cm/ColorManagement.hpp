@@ -368,6 +368,20 @@ namespace NColorManagement {
         } c;
         double     v[4];
 
+        RGBAColor& operator+=(double value) {
+            c.r += value;
+            c.g += value;
+            c.b += value;
+            return *this;
+        }
+
+        RGBAColor& operator-=(double value) {
+            c.r -= value;
+            c.g -= value;
+            c.b -= value;
+            return *this;
+        }
+
         RGBAColor& operator*=(double value) {
             c.r *= value;
             c.g *= value;
