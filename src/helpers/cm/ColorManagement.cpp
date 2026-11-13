@@ -79,6 +79,14 @@ const Hyprgraphics::CMatrix3& CPrimaries::convertMatrix(const WP<const CPrimarie
     return primariesConversion[cacheKey];
 }
 
+float SImageDescription::getContentMaxLuminance() const {
+    if (maxCLL > 0)
+        return maxCLL;
+    if (masteringLuminances.max > 0)
+        return masteringLuminances.max;
+    return luminances.max > 0 ? luminances.max : luminances.reference;
+}
+
 CImageDescription::CImageDescription(const SImageDescription& imageDescription, const uint64_t imageDescriptionId) :
     m_id(imageDescriptionId), m_imageDescription(imageDescription) {
     m_primariesId = CPrimaries::from(m_imageDescription.getPrimaries())->id();
@@ -129,8 +137,7 @@ bool CImageDescription::needsCM(WP<const CImageDescription> target) const {
         || m_imageDescription.luminances != target->m_imageDescription.luminances                   //
         || m_imageDescription.getTFMinLuminance() != target->m_imageDescription.getTFMinLuminance() //
         || m_imageDescription.getTFMaxLuminance() != target->m_imageDescription.getTFMaxLuminance() //
-        // || m_imageDescription.masteringLuminances != target->m_imageDescription.masteringLuminances // TODO unused
-        ;
+        || m_imageDescription.getContentMaxLuminance() != target->m_imageDescription.getContentMaxLuminance();
 }
 
 static Mat3x3 diag3(const std::array<float, 3>& s) {

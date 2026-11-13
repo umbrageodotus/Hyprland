@@ -2496,15 +2496,12 @@ bool CMonitor::canNoShaderCM(bool forDSmode) {
     LOG(Log::TRACE, "CM: can no shder compares src={} to output={}", SRC_DESC_VALUE, m_imageDescription->value());
 
     // only primaries differ
-    return (
-        isCompatibleTF(SRC_DESC_VALUE.transferFunction, DST_DESC->value().transferFunction) //
-        && SRC_DESC_VALUE.transferFunctionPower == DST_DESC->value().transferFunctionPower  //
-        && SRC_DESC_VALUE.getTFMinLuminance() == DST_DESC->value().getTFMinLuminance()      //
-        && SRC_DESC_VALUE.getTFMaxLuminance() == DST_DESC->value().getTFMaxLuminance()      //
-        && (!inHDR() || SRC_DESC_VALUE.luminances == DST_DESC->value().luminances)
-        // not used by shaders atm
-        // && SRC_DESC_VALUE.masteringLuminances == m_imageDescription->value().masteringLuminances && SRC_DESC_VALUE.maxCLL == m_imageDescription->value().maxCLL && SRC_DESC_VALUE.maxFALL == m_imageDescription->value().maxFALL
-    );
+    return (isCompatibleTF(SRC_DESC_VALUE.transferFunction, DST_DESC->value().transferFunction)      //
+            && SRC_DESC_VALUE.transferFunctionPower == DST_DESC->value().transferFunctionPower       //
+            && SRC_DESC_VALUE.getTFMinLuminance() == DST_DESC->value().getTFMinLuminance()           //
+            && SRC_DESC_VALUE.getTFMaxLuminance() == DST_DESC->value().getTFMaxLuminance()           //
+            && SRC_DESC_VALUE.getContentMaxLuminance() == DST_DESC->value().getContentMaxLuminance() //
+            && (!inHDR() || SRC_DESC_VALUE.luminances == DST_DESC->value().luminances));
 }
 
 bool CMonitor::doesNoShaderCM() {
