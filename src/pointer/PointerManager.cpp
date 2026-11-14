@@ -382,11 +382,8 @@ void CPointerManager::resetCursorImage(bool apply) {
             continue;
         }
 
-        if (ms->cursorFrontBuffer) {
-            if (ms->monitor->m_output->getBackend()->capabilities() & Aquamarine::IBackendImplementation::eBackendCapabilities::AQ_BACKEND_CAPABILITY_POINTER)
-                ms->monitor->m_output->setCursor(nullptr, {});
-            ms->cursorFrontBuffer = nullptr;
-        }
+        if (ms->cursorFrontBuffer)
+            setHWCursorBuffer(ms, nullptr);
     }
 
     m_events.cursorChanged.emit();
