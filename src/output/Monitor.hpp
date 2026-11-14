@@ -141,6 +141,8 @@ namespace Monitor {
         UP<COutputCommitCoordinator>   m_commitCoordinator;
         UP<CMonitorWindowTransaction>  m_windowTransaction;
 
+        bool                           m_outputBusy = false;
+
         // mirroring
         PHLMONITORREF              m_mirrorOf;
         std::vector<PHLMONITORREF> m_mirrors;
@@ -182,7 +184,6 @@ namespace Monitor {
             bool nextRenderTorn  = false;
             bool activelyTearing = false;
 
-            bool busy                    = false;
             bool frameScheduledWhileBusy = false;
         } m_tearingState;
 

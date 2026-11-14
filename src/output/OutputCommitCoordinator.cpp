@@ -1,6 +1,7 @@
 #include "OutputCommitCoordinator.hpp"
 
 #include "Monitor.hpp"
+#include "MonitorFrameScheduler.hpp"
 #include "../config/ConfigValue.hpp"
 #include "../managers/eventLoop/EventLoopManager.hpp"
 #include "../managers/screenshare/ScreenshareManager.hpp"
@@ -84,6 +85,11 @@ COutputCommitCoordinator::eSubmitResult COutputCommitCoordinator::submit(SFrame&
         return SUBMIT_FAILED;
     }
 
+    if (frame.kind == FRAME_DIRECT_SCANOUT) {
+        m_stagedRender.reset();
+        m_monitor->m_frameScheduler->cancelPending();
+    }
+
     const auto CAPS = m_monitor->m_output->commitCapabilities();
 
     LOG(Log::TRACE, "COutputCommitCoordinator: submit() with caps={}", m_monitor->m_name, sc<uint32_t>(CAPS));
@@ -115,7 +121,8 @@ COutputCommitCoordinator::eSubmitResult COutputCommitCoordinator::submit(SFrame&
         frame.damage->commit();
         frame.damage.reset();
     }
-    m_pending = std::move(frame);
+    m_pending               = std::move(frame);
+    m_monitor->m_outputBusy = true;
     PROTO::presentation->tagQueued(m_monitor->m_self.lock(), SUBMISSION.id, m_pending->tearing, m_pending->vrr);
 
     return SUBMIT_ASYNC;
@@ -168,6 +175,8 @@ void COutputCommitCoordinator::onCommitResult(const Aquamarine::IOutput::SCommit
 
 void COutputCommitCoordinator::submitted(SFrame& frame, bool async) {
     LOG(Log::TRACE, "COutputCommitCoordinator: submitted {}, async={}", m_monitor->m_name, async);
+
+    m_monitor->m_outputBusy = true;
 
     if (frame.damage)
         frame.damage->commit();
@@ -237,7 +246,7 @@ void COutputCommitCoordinator::failed(SFrame&& frame, bool rollbackSwapchain) {
         m_monitor->m_previousFSWindow.reset();
     }
 
-    m_monitor->m_tearingState.busy = false;
+    m_monitor->m_outputBusy = false;
     m_monitor->m_damage.damageEntire();
     scheduleRecovery();
 }
