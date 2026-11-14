@@ -42,6 +42,7 @@
 #include "../helpers/CursorShapes.hpp"
 #include "../helpers/MainLoopExecutor.hpp"
 #include "../output/Monitor.hpp"
+#include "../output/MonitorFrameScheduler.hpp"
 #include "../output/OutputCommitCoordinator.hpp"
 #include "../output/MonitorWindowTransaction.hpp"
 #include "../state/MonitorState.hpp"
@@ -2349,7 +2350,7 @@ void IHyprRenderer::renderMonitor(PHLMONITOR pMonitor, bool commit) {
         Debug::overlay()->frameData(pMonitor);
 
     // tearing and DS first
-    bool       shouldTear              = pMonitor->updateTearing();
+    const bool shouldTear              = pMonitor->updateTearing();
     const bool canAttemptDirectScanout = pMonitor->canAttemptDirectScanoutFast();
     const auto presentationMode =
         shouldTear ? Aquamarine::eOutputPresentationMode::AQ_OUTPUT_PRESENTATION_IMMEDIATE : Aquamarine::eOutputPresentationMode::AQ_OUTPUT_PRESENTATION_VSYNC;
@@ -2521,17 +2522,13 @@ void IHyprRenderer::renderMonitor(PHLMONITOR pMonitor, bool commit) {
     Event::bus()->m_events.render.stage.emit({RENDER_POST, pMonitor, std::nullopt});
 
     pMonitor->m_output->state->addDamage(frameDamage);
-    bool submitted = true;
     if (commit)
-        submitted = commitPendingAndDoExplicitSync(pMonitor, std::move(damageTransaction), renderResult.finalDamage);
+        commitPendingAndDoExplicitSync(pMonitor, std::move(damageTransaction), renderResult.finalDamage);
     else {
         if (damageTransaction)
             damageTransaction->commit();
         pMonitor->m_commitCoordinator->stageRenderedDamage(renderResult.finalDamage, pMonitor->needsACopyFB());
     }
-
-    if (shouldTear && submitted)
-        pMonitor->m_tearingState.busy = true;
 
     if (*PDAMAGEBLINK || *PVFR == 0 || pMonitor->m_pendingFrame)
         pMonitor->scheduleFrame(Aquamarine::IOutput::AQ_SCHEDULE_RENDER_MONITOR);
@@ -2771,18 +2768,24 @@ void IHyprRenderer::handleFullscreenSettings(PHLMONITOR pMonitor) {
 }
 
 bool IHyprRenderer::commitPendingAndDoExplicitSync(PHLMONITOR pMonitor, std::optional<Monitor::CDamageRing::CTransaction> damage, const CRegion& renderedDamage) {
-    handleFullscreenSettings(pMonitor);
+    const bool deferred = !damage && renderedDamage.empty();
+    const auto staged   = pMonitor->m_commitCoordinator->takeStagedRender();
+    if (deferred && !staged)
+        return true;
 
-    const auto                                staged = renderedDamage.empty() ? pMonitor->m_commitCoordinator->takeStagedRender() : std::nullopt;
+    if (!deferred)
+        pMonitor->m_frameScheduler->cancelPending();
+
+    handleFullscreenSettings(pMonitor);
 
     Monitor::COutputCommitCoordinator::SFrame frame{
         .kind              = Monitor::COutputCommitCoordinator::FRAME_COMPOSED,
         .damage            = std::move(damage),
-        .renderedDamage    = staged ? staged->damage : renderedDamage,
+        .renderedDamage    = deferred ? staged->damage : renderedDamage,
         .rollbackSwapchain = true,
         .tearing           = pMonitor->m_output->state->state().presentationMode == Aquamarine::AQ_OUTPUT_PRESENTATION_IMMEDIATE,
         .vrr               = pMonitor->m_vrrActive,
-        .copyFBPrepared    = staged ? staged->copyFBPrepared : pMonitor->needsACopyFB(),
+        .copyFBPrepared    = deferred ? staged->copyFBPrepared : pMonitor->needsACopyFB(),
     };
 
     const auto result = pMonitor->m_commitCoordinator->submit(std::move(frame));

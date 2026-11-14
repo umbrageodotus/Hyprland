@@ -18,6 +18,13 @@ bool CMonitorFrameScheduler::newSchedulingEnabled() {
     return *PENABLENEW && g_pHyprRenderer->explicitSyncSupported() && m_monitor && !m_monitor->m_directScanoutIsActive && (!m_monitor->m_commitCoordinator->asyncEnabled());
 }
 
+void CMonitorFrameScheduler::cancelPending() {
+    ++m_generation;
+    m_pendingThird  = false;
+    m_renderAtFrame = true;
+    m_sync.reset();
+}
+
 void CMonitorFrameScheduler::onSyncFired() {
     const auto PMONITOR = m_monitor.lock();
     if (!PMONITOR || !newSchedulingEnabled())
@@ -67,8 +74,8 @@ void CMonitorFrameScheduler::onPresented() {
 
     LOG(Log::TRACE, "CMonitorFrameScheduler: {} -> onPresented, missed, committing pending at the earliest convenience.", PMONITOR->m_name);
 
-    g_pEventLoopManager->doLater([m = PHLMONITORREF{PMONITOR}] {
-        if (!m || !m->m_output)
+    g_pEventLoopManager->doLater([this, self = m_self, generation = m_generation, m = PHLMONITORREF{PMONITOR}] {
+        if (!self || generation != m_generation || !m || !m->m_output)
             return;
 
         auto ml = m.lock();
@@ -89,7 +96,7 @@ void CMonitorFrameScheduler::onFrame() {
 
     PMONITOR->recheckSolitary();
 
-    PMONITOR->m_tearingState.busy = false;
+    PMONITOR->m_outputBusy = false;
 
     if (PMONITOR->m_tearingState.activelyTearing && PMONITOR->m_solitaryClient.lock() /* can be invalidated by a recheck */) {
 
@@ -137,8 +144,8 @@ void CMonitorFrameScheduler::onFinishRender() {
         return;
     }
 
-    g_pEventLoopManager->doOnReadable(m_sync->fd().duplicate(), [this, self = m_self] {
-        if (!self) // might've gotten destroyed
+    g_pEventLoopManager->doOnReadable(m_sync->fd().duplicate(), [this, self = m_self, generation = m_generation] {
+        if (!self || generation != m_generation)
             return;
         onSyncFired();
     });
