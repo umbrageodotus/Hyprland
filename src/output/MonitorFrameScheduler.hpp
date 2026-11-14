@@ -20,6 +20,7 @@ namespace Monitor {
         void                    onSyncFired();
         void                    onPresented();
         void                    onFrame();
+        void                    cancelPending();
 
       private:
         bool                       canRender();
@@ -29,6 +30,7 @@ namespace Monitor {
         bool                       m_renderAtFrame = true;
         bool                       m_pendingThird  = false;
         stc::time_point            m_lastRenderBegun;
+        uint64_t                   m_generation    = 0;
 
         PHLMONITORREF              m_monitor;
 

@@ -1838,7 +1838,7 @@ void CWindow::commitWindow(bool initialCommit) {
     if (PMONITOR && PMONITOR->m_solitaryClient.lock() == m_self.lock() && canBeTorn() && PMONITOR->m_tearingState.canTear && wlSurface()->resource()->m_current.texture &&
         HADDAMAGE) {
 
-        if (PMONITOR->m_tearingState.busy)
+        if (PMONITOR->m_outputBusy)
             PMONITOR->m_tearingState.frameScheduledWhileBusy = true;
         else {
             PMONITOR->m_tearingState.nextRenderTorn = true;
