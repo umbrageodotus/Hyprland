@@ -23,6 +23,7 @@
 #include "../helpers/Drm.hpp"
 #include "../event/EventBus.hpp"
 #include "../state/MonitorState.hpp"
+#include "../output/OutputCommitCoordinator.hpp"
 #include <climits>
 #include <cstring>
 #include <gbm.h>
@@ -86,6 +87,13 @@ cairo_matrix_t CPointerManager::SCursorImageData::cairoMatrix(const Vector2D& te
 
 CPointerManager::CPointerManager() {
     m_hooks.monitorAdded = Event::bus()->m_events.monitor.added.listen([this](PHLMONITOR monitor) {
+        monitor->m_events.commit.listenStatic([this, monitor = PHLMONITORREF{monitor}] {
+            if (!monitor || monitor->m_commitCoordinator->hasPendingCommit())
+                return;
+
+            stateFor(monitor.lock())->cursorRendered = false;
+        });
+
         onMonitorLayoutChange();
 
         monitor->m_events.modeChanged.listenStatic([this] { g_pEventLoopManager->doLater([this]() { onMonitorLayoutChange(); }); });
@@ -97,14 +105,6 @@ CPointerManager::CPointerManager() {
     });
 
     m_hooks.monitorLayoutChanged = Event::bus()->m_events.monitor.layoutChanged.listen([this] { onMonitorLayoutChange(); });
-
-    m_hooks.monitorPreRender = Event::bus()->m_events.monitor.preCommit.listen([this](PHLMONITOR monitor) {
-        auto state = stateFor(monitor);
-        if (!state)
-            return;
-
-        state->cursorRendered = false;
-    });
 }
 
 void CPointerManager::lockSoftwareAll() {
@@ -602,9 +602,7 @@ SP<Aquamarine::IBuffer> CPointerManager::renderHWCursorBuffer(SP<CPointerManager
         }
     }
 
-    // if we already rendered the cursor, revert the swapchain to avoid rendering the cursor over
-    // the current front buffer
-    // this flag will be reset in the preRender hook, so when we commit this buffer to KMS
+    // Reuse the pending cursor buffer until it is submitted.
     if (state->cursorRendered)
         state->monitor->m_cursorSwapchain->rollback();
 
