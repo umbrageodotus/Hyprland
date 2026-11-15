@@ -810,6 +810,12 @@ void CInputManager::processMouseRequest(const CSeatManager::SSetCursorEvent& eve
 }
 
 void CInputManager::restoreCursorIconToApp() {
+    if (!g_pSeatManager->m_state.pointerFocus) {
+        g_pHyprRenderer->setCursorFromName("left_ptr");
+        m_emptyFocusCursorSet = true;
+        return;
+    }
+
     if (m_cursorSurfaceInfo.hidden) {
         g_pHyprRenderer->setCursorSurface(nullptr, 0, 0);
         return;
