@@ -193,46 +193,46 @@ void CDragStateController::dragBegin(SP<ITarget> target, eMouseBindMode mode, st
     static auto RESIZECORNER = CConfigValue<Config::INTEGER>("general:resize_corner");
     if (m_forcedGrabbedCorner && *m_forcedGrabbedCorner != CORNER_NONE) {
         m_grabbedCorner = *m_forcedGrabbedCorner;
-        Pointer::Cursor::overrideController->setOverride(std::string{cursorForResizeEdge(m_grabbedCorner)}, Pointer::Cursor::CURSOR_OVERRIDE_SPECIAL_ACTION);
+        Pointer::Cursor::overrideController->setOverride(std::string{cursorForResizeEdge(m_grabbedCorner)}, Pointer::Cursor::CURSOR_OVERRIDE_DRAG);
     } else if (*RESIZECORNER != 0 && *RESIZECORNER <= 4 && DRAGGINGTARGET->floating()) {
         switch (*RESIZECORNER) {
             case 1:
                 m_grabbedCorner = CORNER_TOPLEFT;
-                Pointer::Cursor::overrideController->setOverride("nw-resize", Pointer::Cursor::CURSOR_OVERRIDE_SPECIAL_ACTION);
+                Pointer::Cursor::overrideController->setOverride("nw-resize", Pointer::Cursor::CURSOR_OVERRIDE_DRAG);
                 break;
             case 2:
                 m_grabbedCorner = CORNER_TOPRIGHT;
-                Pointer::Cursor::overrideController->setOverride("ne-resize", Pointer::Cursor::CURSOR_OVERRIDE_SPECIAL_ACTION);
+                Pointer::Cursor::overrideController->setOverride("ne-resize", Pointer::Cursor::CURSOR_OVERRIDE_DRAG);
                 break;
             case 3:
                 m_grabbedCorner = CORNER_BOTTOMRIGHT;
-                Pointer::Cursor::overrideController->setOverride("se-resize", Pointer::Cursor::CURSOR_OVERRIDE_SPECIAL_ACTION);
+                Pointer::Cursor::overrideController->setOverride("se-resize", Pointer::Cursor::CURSOR_OVERRIDE_DRAG);
                 break;
             case 4:
                 m_grabbedCorner = CORNER_BOTTOMLEFT;
-                Pointer::Cursor::overrideController->setOverride("sw-resize", Pointer::Cursor::CURSOR_OVERRIDE_SPECIAL_ACTION);
+                Pointer::Cursor::overrideController->setOverride("sw-resize", Pointer::Cursor::CURSOR_OVERRIDE_DRAG);
                 break;
         }
     } else if (m_beginDragXY.x < m_beginDragPositionXY.x + m_beginDragSizeXY.x / 2.F) {
         if (m_beginDragXY.y < m_beginDragPositionXY.y + m_beginDragSizeXY.y / 2.F) {
             m_grabbedCorner = CORNER_TOPLEFT;
-            Pointer::Cursor::overrideController->setOverride("nw-resize", Pointer::Cursor::CURSOR_OVERRIDE_SPECIAL_ACTION);
+            Pointer::Cursor::overrideController->setOverride("nw-resize", Pointer::Cursor::CURSOR_OVERRIDE_DRAG);
         } else {
             m_grabbedCorner = CORNER_BOTTOMLEFT;
-            Pointer::Cursor::overrideController->setOverride("sw-resize", Pointer::Cursor::CURSOR_OVERRIDE_SPECIAL_ACTION);
+            Pointer::Cursor::overrideController->setOverride("sw-resize", Pointer::Cursor::CURSOR_OVERRIDE_DRAG);
         }
     } else {
         if (m_beginDragXY.y < m_beginDragPositionXY.y + m_beginDragSizeXY.y / 2.F) {
             m_grabbedCorner = CORNER_TOPRIGHT;
-            Pointer::Cursor::overrideController->setOverride("ne-resize", Pointer::Cursor::CURSOR_OVERRIDE_SPECIAL_ACTION);
+            Pointer::Cursor::overrideController->setOverride("ne-resize", Pointer::Cursor::CURSOR_OVERRIDE_DRAG);
         } else {
             m_grabbedCorner = CORNER_BOTTOMRIGHT;
-            Pointer::Cursor::overrideController->setOverride("se-resize", Pointer::Cursor::CURSOR_OVERRIDE_SPECIAL_ACTION);
+            Pointer::Cursor::overrideController->setOverride("se-resize", Pointer::Cursor::CURSOR_OVERRIDE_DRAG);
         }
     }
 
     if (!isResizeMode(m_dragMode))
-        Pointer::Cursor::overrideController->setOverride("grabbing", Pointer::Cursor::CURSOR_OVERRIDE_SPECIAL_ACTION);
+        Pointer::Cursor::overrideController->setOverride("grabbing", Pointer::Cursor::CURSOR_OVERRIDE_DRAG);
 
     if (m_exclusiveDeviceGrab)
         g_pSeatManager->setPointerFocus(nullptr, {});
@@ -279,7 +279,7 @@ bool CDragStateController::dragEnd() {
 
     if (!validMapped(draggingTarget->window())) {
         if (draggingTarget->window()) {
-            Pointer::Cursor::overrideController->unsetOverride(Pointer::Cursor::CURSOR_OVERRIDE_SPECIAL_ACTION);
+            Pointer::Cursor::overrideController->unsetOverride(Pointer::Cursor::CURSOR_OVERRIDE_DRAG);
             m_target.reset();
         }
         m_dragMode            = MBIND_INVALID;
@@ -288,7 +288,7 @@ bool CDragStateController::dragEnd() {
         return true;
     }
 
-    Pointer::Cursor::overrideController->unsetOverride(Pointer::Cursor::CURSOR_OVERRIDE_SPECIAL_ACTION);
+    Pointer::Cursor::overrideController->unsetOverride(Pointer::Cursor::CURSOR_OVERRIDE_DRAG);
     m_target.reset();
     m_wasDraggingWindow = true;
 
