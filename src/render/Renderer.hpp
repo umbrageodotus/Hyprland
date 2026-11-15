@@ -126,7 +126,7 @@ namespace Render {
         SP<IFramebuffer>                makeSnapshotFB(WP<Desktop::View::CPopup>, eSceneMode mode);
         void                            renderFadeouts(CRenderContext& ctx, PHLMONITOR monitor, Desktop::eFadeoutPlane plane, PHLWORKSPACE workspace = nullptr);
         bool                            beginFullFakeRender(PHLMONITOR pMonitor, CRegion& damage, SP<IFramebuffer> fb);
-        bool                            beginRenderToBuffer(PHLMONITOR pMonitor, CRegion& damage, SP<IHLBuffer> buffer, bool simple = false);
+        bool                            beginRenderToBuffer(PHLMONITOR pMonitor, CRegion& damage, SP<Aquamarine::IBuffer> buffer, bool simple = false);
         virtual void                    startRenderPass(CRenderContext& ctx) {
             ;
         };
@@ -255,8 +255,8 @@ namespace Render {
         void                      setDamage(CRenderContext& ctx, const CRegion& damage_, std::optional<CRegion> finalDamage);
         // if RENDER_MODE_NORMAL, provided damage will be written to.
         // otherwise, it will be the one used.
-        bool beginRender(PHLMONITOR pMonitor, CRegion& damage, eRenderMode mode = RENDER_MODE_NORMAL, SP<IHLBuffer> buffer = {}, SP<IFramebuffer> fb = nullptr, bool simple = false,
-                         const SRenderOptions& options = {}, std::optional<Monitor::CDamageRing::CTransaction>* damageTransaction = nullptr);
+        bool         beginRender(PHLMONITOR pMonitor, CRegion& damage, eRenderMode mode = RENDER_MODE_NORMAL, SP<Aquamarine::IBuffer> buffer = {}, SP<IFramebuffer> fb = nullptr,
+                                 bool simple = false, const SRenderOptions& options = {}, std::optional<Monitor::CDamageRing::CTransaction>* damageTransaction = nullptr);
 
         virtual bool beginRenderInternal(CRenderContext& ctx, PHLMONITOR pMonitor, CRegion& damage, bool simple = false) {
             return false;

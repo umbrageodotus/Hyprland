@@ -1880,8 +1880,8 @@ void IHyprRenderer::renderSessionLockMissing(CRenderContext& ctx, PHLMONITOR pMo
     }
 }
 
-bool IHyprRenderer::beginRender(PHLMONITOR pMonitor, CRegion& damage, eRenderMode mode, SP<IHLBuffer> buffer, SP<IFramebuffer> fb, bool simple, const SRenderOptions& options,
-                                std::optional<Monitor::CDamageRing::CTransaction>* damageTransaction) {
+bool IHyprRenderer::beginRender(PHLMONITOR pMonitor, CRegion& damage, eRenderMode mode, SP<Aquamarine::IBuffer> buffer, SP<IFramebuffer> fb, bool simple,
+                                const SRenderOptions& options, std::optional<Monitor::CDamageRing::CTransaction>* damageTransaction) {
     if (m_context.active()) {
         LOG(Log::ERR, "Cannot begin rendering while a render context is active");
         return false;
@@ -1914,7 +1914,7 @@ bool IHyprRenderer::beginRender(PHLMONITOR pMonitor, CRegion& damage, eRenderMod
     m_context.m_data.useNearestNeighbor = options.useNearestNeighbor;
 
     if (simple) {
-        m_context.m_data.fbSize = fb ? fb->m_size : buffer->m_texture->m_size;
+        m_context.m_data.fbSize = fb ? fb->m_size : buffer->size;
         setProjectionType(m_context, RPT_EXPORT);
     } else
         setProjectionType(m_context, RPT_MONITOR);
@@ -3388,7 +3388,7 @@ bool IHyprRenderer::beginFullFakeRender(PHLMONITOR pMonitor, CRegion& damage, SP
     return beginRender(pMonitor, damage, RENDER_MODE_FULL_FAKE, nullptr, fb, true);
 }
 
-bool IHyprRenderer::beginRenderToBuffer(PHLMONITOR pMonitor, CRegion& damage, SP<IHLBuffer> buffer, bool simple) {
+bool IHyprRenderer::beginRenderToBuffer(PHLMONITOR pMonitor, CRegion& damage, SP<Aquamarine::IBuffer> buffer, bool simple) {
     return beginRender(pMonitor, damage, RENDER_MODE_TO_BUFFER, buffer, nullptr, simple);
 }
 
