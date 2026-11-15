@@ -582,8 +582,14 @@ void CInputManager::mouseMoveUnified(uint32_t time, bool refocus, bool mouse, st
         }
     }
 
+    if (m_borderIconDirection != BORDERICON_NONE &&
+        (!foundSurface || !pFoundWindow || !*PRESIZEONBORDER || !*PRESIZECURSORICON)) {
+        m_borderIconDirection = BORDERICON_NONE;
+        Pointer::Cursor::overrideController->unsetOverride(Pointer::Cursor::CURSOR_OVERRIDE_WINDOW_EDGE);
+    }
+
     if (!foundSurface) {
-        if (!m_emptyFocusCursorSet) {
+        if (!m_emptyFocusCursorSet && cursorImageUnlocked()) {
             g_pHyprRenderer->setCursorFromName("left_ptr");
             m_emptyFocusCursorSet = true;
         }
@@ -706,11 +712,6 @@ void CInputManager::mouseMoveUnified(uint32_t time, bool refocus, bool mouse, st
 
         m_lastFocusOnLS = false;
     } else {
-        if (*PRESIZEONBORDER && *PRESIZECURSORICON && m_borderIconDirection != BORDERICON_NONE) {
-            m_borderIconDirection = BORDERICON_NONE;
-            Pointer::Cursor::overrideController->unsetOverride(Pointer::Cursor::CURSOR_OVERRIDE_WINDOW_EDGE);
-        }
-
         if (pFoundLayerSurface && (pFoundLayerSurface->m_layerSurface->m_current.keyboardInteractivity != ZWLR_LAYER_SURFACE_V1_KEYBOARD_INTERACTIVITY_NONE) && FOLLOWMOUSE != 3 &&
             (allowKeyboardRefocus || pFoundLayerSurface->m_layerSurface->m_current.keyboardInteractivity == ZWLR_LAYER_SURFACE_V1_KEYBOARD_INTERACTIVITY_EXCLUSIVE)) {
             Desktop::focusState()->rawSurfaceFocus(foundSurface);
@@ -834,7 +835,7 @@ void CInputManager::setClickMode(eClickBehaviorMode mode) {
         case CLICKMODE_DEFAULT:
             LOG(Log::DEBUG, "SetClickMode: DEFAULT");
             m_clickBehavior = CLICKMODE_DEFAULT;
-            g_pHyprRenderer->setCursorFromName("left_ptr", true);
+            Pointer::Cursor::overrideController->unsetOverride(Pointer::Cursor::CURSOR_OVERRIDE_SPECIAL_ACTION);
             break;
 
         case CLICKMODE_KILL:
