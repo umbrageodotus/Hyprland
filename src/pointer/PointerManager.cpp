@@ -108,6 +108,7 @@ CPointerManager::CPointerManager() {
 }
 
 void CPointerManager::lockSoftwareAll() {
+    m_globalSoftwareLocks++;
     for (auto const& state : m_monitorStates)
         state->softwareLocks++;
 
@@ -115,6 +116,12 @@ void CPointerManager::lockSoftwareAll() {
 }
 
 void CPointerManager::unlockSoftwareAll() {
+    if (m_globalSoftwareLocks == 0) {
+        LOG(Log::WARN, "Unlocking global SW cursors while not locked");
+        return;
+    }
+
+    m_globalSoftwareLocks--;
     for (auto const& state : m_monitorStates)
         state->softwareLocks--;
 
@@ -131,11 +138,11 @@ void CPointerManager::lockSoftwareForMonitor(PHLMONITOR mon) {
 
 void CPointerManager::unlockSoftwareForMonitor(PHLMONITOR mon) {
     auto const state = stateFor(mon);
-    state->softwareLocks--;
-    if (state->softwareLocks < 0) {
-        state->softwareLocks = 0;
+    if (state->softwareLocks <= m_globalSoftwareLocks) {
         LOG(Log::WARN, "Unlocking SW for monitor while it's not locked");
+        return;
     }
+    state->softwareLocks--;
 
     if (state->softwareLocks == 0)
         updateCursorBackend();
@@ -184,7 +191,7 @@ bool CPointerManager::hasCursor() {
 SP<CPointerManager::SMonitorPointerState> CPointerManager::stateFor(PHLMONITOR mon) {
     auto it = std::ranges::find_if(m_monitorStates, [mon](const auto& other) { return other->monitor == mon; });
     if (it == m_monitorStates.end())
-        return m_monitorStates.emplace_back(makeShared<CPointerManager::SMonitorPointerState>(mon));
+        return m_monitorStates.emplace_back(makeShared<CPointerManager::SMonitorPointerState>(mon, m_globalSoftwareLocks));
     return *it;
 }
 
