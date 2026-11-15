@@ -197,7 +197,9 @@ namespace Pointer {
         Vector2D                      m_pointerPos = {0, 0};
 
         struct SMonitorPointerState {
-            SMonitorPointerState(const PHLMONITOR& m) : monitor(m) {}
+            SMonitorPointerState(const PHLMONITOR& m, int softwareLockCount) : monitor(m), softwareLocks(softwareLockCount) {
+                ;
+            }
             ~SMonitorPointerState() = default;
 
             PHLMONITORREF           monitor;
@@ -216,6 +218,7 @@ namespace Pointer {
         };
 
         std::vector<SP<SMonitorPointerState>> m_monitorStates;
+        int                                   m_globalSoftwareLocks = 0;
         SP<SMonitorPointerState>              stateFor(PHLMONITOR mon);
         bool                                  attemptHardwareCursor(SP<SMonitorPointerState> state);
         SP<Aquamarine::IBuffer>               renderHWCursorBuffer(SP<SMonitorPointerState> state, SP<Render::ITexture> texture);
