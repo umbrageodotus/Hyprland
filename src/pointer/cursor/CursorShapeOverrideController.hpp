@@ -14,7 +14,9 @@ namespace Pointer::Cursor {
         CURSOR_OVERRIDE_WINDOW_EDGE,
         // Drag and drop
         CURSOR_OVERRIDE_DND,
-        // special action: Interactive::CDrag, kill, etc.
+        // interactive window drag
+        CURSOR_OVERRIDE_DRAG,
+        // special action: kill, etc.
         CURSOR_OVERRIDE_SPECIAL_ACTION,
 
         //
