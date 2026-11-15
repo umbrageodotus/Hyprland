@@ -545,7 +545,7 @@ class CLifecycleFramebuffer : public Render::IFramebuffer {
     }
 };
 
-class CLifecycleBuffer : public IHLBuffer {
+class CLifecycleBuffer : public Aquamarine::IBuffer {
   public:
     Aquamarine::eBufferCapability caps() override {
         return Aquamarine::BUFFER_CAPABILITY_NONE;
@@ -890,9 +890,16 @@ TEST_F(CRenderLifecycleTest, IsolatedDrawScopesDoNotWriteBackMonitorFlags) {
 
 TEST_F(CRenderLifecycleTest, DefaultRenderBeginSelectsActualMonitorResourceAdapter) {
     const auto monitorResources = m_monitor->resources();
-    CRegion    damage{0, 0, 64, 48};
-    ASSERT_TRUE(renderer().beginRender(m_monitor, damage, Render::RENDER_MODE_TO_BUFFER, makeShared<CLifecycleBuffer>()));
+    auto       buffer           = makeShared<CLifecycleBuffer>();
+    buffer->size                = {32, 24};
+    CRegion damage{0, 0, 64, 48};
+    ASSERT_TRUE(renderer().beginRenderToBuffer(m_monitor, damage, buffer, true));
     auto& ctx = renderer().context();
+    EXPECT_EQ(ctx.m_mode, Render::RENDER_MODE_TO_BUFFER);
+    EXPECT_EQ(ctx.m_data.fbSize, buffer->size);
+    EXPECT_EQ(ctx.m_data.projectionType, Render::RPT_EXPORT);
+    EXPECT_EQ(ctx.m_currentBuffer, buffer);
+    EXPECT_FALSE(ctx.m_swapchainAcquired);
     ASSERT_EQ(ctx.sceneResources(), monitorResources->sceneResources());
     ASSERT_TRUE(ctx.sceneResources());
     EXPECT_FALSE(ctx.sceneResources()->isolated());

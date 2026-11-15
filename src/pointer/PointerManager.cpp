@@ -690,19 +690,8 @@ SP<Aquamarine::IBuffer> CPointerManager::renderHWCursorBuffer(SP<CPointerManager
         return buf;
     }
 
-    auto RBO = g_pHyprRenderer->getOrCreateRenderbuffer(buf, state->monitor->m_cursorSwapchain->currentOptions().format);
-    if (!RBO) {
-        LOG(Log::TRACE, "Failed to create cursor RB with format {}, mod {}", buf->dmabuf().format, buf->dmabuf().modifier);
-        return nullptr;
-    }
-
-    // the cursor plane is blended after the FB is encoded into the output's colour space,
-    // so tag it - otherwise a raw sRGB cursor gets reinterpreted there, blinding on PQ
-    const auto FB = RBO->getFB();
-    FB->setImageDescription(state->monitor->m_imageDescription);
-
     CRegion damageRegion = {0, 0, INT_MAX, INT_MAX};
-    if (!g_pHyprRenderer->beginFullFakeRender(state->monitor.lock(), damageRegion, FB))
+    if (!g_pHyprRenderer->beginRenderToBuffer(state->monitor.lock(), damageRegion, buf, true))
         return nullptr;
     bool                      finishing = false;
     const Render::CScopeGuard cleanup([&] {
@@ -710,7 +699,9 @@ SP<Aquamarine::IBuffer> CPointerManager::renderHWCursorBuffer(SP<CPointerManager
             g_pHyprRenderer->abortRender();
     });
     auto&                     ctx = g_pHyprRenderer->context();
-    ctx.m_data.fbSize             = FB->m_size;
+    // the cursor plane is blended after the FB is encoded into the output's colour space,
+    // so tag it - otherwise a raw sRGB cursor gets reinterpreted there, blinding on PQ
+    ctx.m_data.currentFB->setImageDescription(state->monitor->m_imageDescription);
     g_pHyprRenderer->setProjectionType(ctx, Render::RPT_FB);
     ctx.m_data.transformDamage = true;
     g_pHyprRenderer->startRenderPass(ctx);
