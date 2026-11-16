@@ -3,6 +3,7 @@
 #include "Monitor.hpp"
 #include "MonitorFrameScheduler.hpp"
 #include "../config/ConfigValue.hpp"
+#include "../event/EventBus.hpp"
 #include "../managers/eventLoop/EventLoopManager.hpp"
 #include "../managers/screenshare/ScreenshareManager.hpp"
 #include "../protocols/PresentationTime.hpp"
@@ -105,6 +106,7 @@ COutputCommitCoordinator::eSubmitResult COutputCommitCoordinator::submit(SFrame&
         options.targetPresentation = m_monitor->m_output->nextVBlank();
     options.lateCursor = m_monitor->m_output->hasCursorPlane() && (CAPS & Aquamarine::IOutput::AQ_OUTPUT_COMMIT_CAPABILITY_LATE_CURSOR);
 
+    Event::bus()->m_events.monitor.preCommit.emit(m_monitor->m_self.lock());
     const auto SUBMISSION = m_monitor->m_output->commitAsync(options);
     if (!SUBMISSION.id) {
         if (SUBMISSION.error == ENOTSUP)
@@ -133,7 +135,8 @@ COutputCommitCoordinator::eSubmitResult COutputCommitCoordinator::submitSynchron
 
     PROTO::presentation->tagQueued(m_monitor->m_self.lock(), 0, frame.tearing, frame.vrr);
 
-    bool ok = frame.kind == FRAME_DIRECT_SCANOUT ? m_monitor->m_output->commit() : m_monitor->m_state.commit();
+    bool ok =
+        frame.kind == FRAME_DIRECT_SCANOUT ? (Event::bus()->m_events.monitor.preCommit.emit(m_monitor->m_self.lock()), m_monitor->m_output->commit()) : m_monitor->m_state.commit();
     if (!ok && frame.kind == FRAME_COMPOSED && m_monitor->m_inFence.isValid()) {
         m_monitor->m_output->state->resetExplicitFences();
         ok = m_monitor->m_state.commit();

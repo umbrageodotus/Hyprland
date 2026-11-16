@@ -2034,6 +2034,7 @@ bool CMonitor::attemptDirectScanout() {
                 return false;
             }
 
+            Event::bus()->m_events.monitor.preCommit.emit(m_self.lock());
             if (!m_output->commit()) {
                 LOG(Log::TRACE, "attemptDirectScanout: failed to commit cursor update");
                 m_lastScanout.reset();
@@ -2623,10 +2624,9 @@ bool CMonitorState::commit() {
     if (!updateSwapchain())
         return false;
 
-    Event::bus()->m_events.monitor.preCommit.emit(m_owner->m_self.lock());
-
     ensureBufferPresent();
 
+    Event::bus()->m_events.monitor.preCommit.emit(m_owner->m_self.lock());
     bool ret = m_owner->m_output->commit();
     return ret;
 }
