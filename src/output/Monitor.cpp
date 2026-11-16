@@ -2078,7 +2078,7 @@ bool CMonitor::attemptDirectScanout() {
         m_output->state->resetExplicitFences();
     }};
 
-    const bool  NEEDS_TEST = !m_lastScanout || m_drmFormat != params.format; // do not retest while it's active
+    const bool NEEDS_TEST = !m_lastScanout || m_drmFormat != params.format; // do not retest while it's active
     if (m_drmFormat != params.format) {
         m_output->state->setFormat(params.format);
         m_drmFormat = params.format;
