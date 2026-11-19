@@ -5,6 +5,8 @@
 #include "../managers/eventLoop/EventLoopManager.hpp"
 #include "OutputCommitCoordinator.hpp"
 
+#include <utility>
+
 using namespace Render::GL;
 using namespace Monitor;
 
@@ -98,14 +100,10 @@ void CMonitorFrameScheduler::onFrame() {
 
     PMONITOR->m_outputBusy = false;
 
-    if (PMONITOR->m_tearingState.activelyTearing && PMONITOR->m_solitaryClient.lock() /* can be invalidated by a recheck */) {
-
-        if (!PMONITOR->m_tearingState.frameScheduledWhileBusy)
-            return; // we did not schedule a frame yet to be displayed, but we are tearing. Why render?
-
-        PMONITOR->m_tearingState.nextRenderTorn          = true;
-        PMONITOR->m_tearingState.frameScheduledWhileBusy = false;
-    }
+    if (std::exchange(PMONITOR->m_tearingState.frameScheduledWhileBusy, false))
+        PMONITOR->m_tearingState.nextRenderTorn = true;
+    else if (PMONITOR->m_tearingState.activelyTearing && PMONITOR->m_solitaryClient)
+        return;
 
     if (!newSchedulingEnabled()) {
         PMONITOR->m_lastPresentationTimer.reset();
