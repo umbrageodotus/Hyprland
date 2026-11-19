@@ -125,6 +125,9 @@ bool CFifoResource::good() {
 }
 
 void CFifoResource::presented() {
+	if (!m_surface->m_current.waitingOnPresentation)
+		return;
+
     m_surface->m_current.waitingOnPresentation = false;
     m_surface->m_stateQueue.unlockFirst(LOCK_REASON_FIFO);
 }
