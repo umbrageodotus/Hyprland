@@ -921,9 +921,6 @@ bool CMonitor::applyMonitorRule(Config::CMonitorRule&& pMonitorRule) {
 
     const auto OLD_PIXEL_SIZE = m_pixelSize;
 
-    m_vrrActive = m_output->state->state().adaptiveSync // disabled here, will be tested in CConfigManager::ensureVRR()
-        || m_createdByUser;                             // wayland backend doesn't allow for disabling adaptive_sync
-
     m_pixelSize = m_size;
 
     m_output->state->setMaxBpc(RULE->m_enable10bit ? 10 : 8);
@@ -1119,7 +1116,7 @@ bool CMonitor::shouldSkipScheduleFrameOnMouseEvent() {
     const auto FULLSCREEN_WINDOW  = Fullscreen::controller()->getFullscreenWindow(m_self.lock());
     const bool shouldRenderCursor = g_pHyprRenderer->shouldRenderCursor();
     const bool noBreak            = FULLSCREEN_WINDOW && (*PNOBREAK == 1 || (*PNOBREAK == 2 && FULLSCREEN_WINDOW->getContentType() == CONTENT_TYPE_GAME));
-    const bool shouldSkip         = (!shouldRenderCursor || noBreak) && m_output->state->state().adaptiveSync;
+    const bool shouldSkip         = (!shouldRenderCursor || noBreak) && vrrActive();
 
     // keep requested minimum refresh rate
     if (shouldSkip && *PMINRR && m_lastPresentationTimer.getMillis() > 1000.0f / *PMINRR) {
@@ -1197,6 +1194,10 @@ bool CMonitor::hasOutput() const {
 
 SP<Aquamarine::IOutput> CMonitor::output() const {
     return m_output;
+}
+
+bool CMonitor::vrrActive() const {
+    return m_output && m_output->vrrActive;
 }
 
 std::optional<Vector2D> CMonitor::explicitPosition() const {
@@ -2028,15 +2029,16 @@ bool CMonitor::attemptDirectScanout() {
 
     // #TODO this entire bit needs figuring out, vrr goes down the drain without it
     if (PBUFFER == m_output->state->state().buffer && *PSAME) {
-        if (m_scanoutNeedsCursorUpdate) {
+        const bool VRR_CHANGED = m_output->state->state().adaptiveSync != vrrActive();
+        if (m_scanoutNeedsCursorUpdate || VRR_CHANGED) {
             if (!m_state.test()) {
-                LOG(Log::TRACE, "attemptDirectScanout: failed basic test on cursor update");
+                LOG(Log::TRACE, "attemptDirectScanout: failed basic test while reusing the scanout buffer");
                 return false;
             }
 
             Event::bus()->m_events.monitor.preCommit.emit(m_self.lock());
             if (!m_output->commit()) {
-                LOG(Log::TRACE, "attemptDirectScanout: failed to commit cursor update");
+                LOG(Log::TRACE, "attemptDirectScanout: failed to commit while reusing the scanout buffer");
                 m_lastScanout.reset();
                 return false;
             }
@@ -2123,7 +2125,6 @@ bool CMonitor::attemptDirectScanout() {
         .scanoutCandidate  = PCANDIDATE,
         .rollbackSwapchain = false,
         .tearing           = m_tearingState.activelyTearing,
-        .vrr               = m_vrrActive,
         .previousFormat    = previousFormat,
     };
 

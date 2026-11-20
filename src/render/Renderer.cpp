@@ -2815,7 +2815,6 @@ bool IHyprRenderer::commitPendingAndDoExplicitSync(PHLMONITOR pMonitor, std::opt
         .renderedDamage    = deferred ? staged->damage : renderedDamage,
         .rollbackSwapchain = true,
         .tearing           = pMonitor->m_output->state->state().presentationMode == Aquamarine::AQ_OUTPUT_PRESENTATION_IMMEDIATE,
-        .vrr               = pMonitor->m_vrrActive,
         .copyFBPrepared    = deferred ? staged->copyFBPrepared : pMonitor->needsACopyFB(),
     };
 

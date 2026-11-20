@@ -91,6 +91,8 @@ COutputCommitCoordinator::eSubmitResult COutputCommitCoordinator::submit(SFrame&
         m_monitor->m_frameScheduler->cancelPending();
     }
 
+    frame.vrr = m_monitor->m_output->state->state().adaptiveSync;
+
     const auto CAPS = m_monitor->m_output->commitCapabilities();
 
     LOG(Log::TRACE, "COutputCommitCoordinator: submit() with caps={}", m_monitor->m_name, sc<uint32_t>(CAPS));

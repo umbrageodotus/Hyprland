@@ -126,5 +126,5 @@ std::optional<CBox> CMonitorLayoutController::calculateUnifiedX11WorkArea() cons
 }
 
 bool CMonitorLayoutController::isVRRActiveOnAnyMonitor() const {
-    return std::ranges::any_of(State::monitorState()->monitors(), [](const PHLMONITOR& m) { return m->m_vrrActive; });
+    return std::ranges::any_of(State::monitorState()->monitors(), [](const PHLMONITOR& m) { return m->vrrActive(); });
 }

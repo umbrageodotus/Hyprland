@@ -160,7 +160,7 @@ static int monitorIndex(lua_State* L) {
     else if (key == "enabled")
         lua_pushboolean(L, mon->enabled());
     else if (key == "vrr_active")
-        lua_pushboolean(L, mon->m_vrrActive);
+        lua_pushboolean(L, mon->vrrActive());
     else if (key == "is_mirror")
         lua_pushboolean(L, mon->isMirror());
     else if (key == "mirrors") {

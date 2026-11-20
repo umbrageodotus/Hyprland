@@ -145,7 +145,7 @@ void COutputHead::sendAllData() {
         m_resource->sendSerialNumber(m_monitor->m_output->serial.c_str());
 
     if (VERSION >= 4)
-        m_resource->sendAdaptiveSync(m_monitor->m_vrrActive ? ZWLR_OUTPUT_HEAD_V1_ADAPTIVE_SYNC_STATE_ENABLED : ZWLR_OUTPUT_HEAD_V1_ADAPTIVE_SYNC_STATE_DISABLED);
+        m_resource->sendAdaptiveSync(m_monitor->vrrActive() ? ZWLR_OUTPUT_HEAD_V1_ADAPTIVE_SYNC_STATE_ENABLED : ZWLR_OUTPUT_HEAD_V1_ADAPTIVE_SYNC_STATE_DISABLED);
 
     // send all available modes
 
@@ -190,7 +190,7 @@ void COutputHead::updateMode() {
     }
 
     if (m_resource->version() >= 4)
-        m_resource->sendAdaptiveSync(m_monitor->m_vrrActive ? ZWLR_OUTPUT_HEAD_V1_ADAPTIVE_SYNC_STATE_ENABLED : ZWLR_OUTPUT_HEAD_V1_ADAPTIVE_SYNC_STATE_DISABLED);
+        m_resource->sendAdaptiveSync(m_monitor->vrrActive() ? ZWLR_OUTPUT_HEAD_V1_ADAPTIVE_SYNC_STATE_ENABLED : ZWLR_OUTPUT_HEAD_V1_ADAPTIVE_SYNC_STATE_DISABLED);
 
     if (m_monitor->m_enabled) {
         for (auto const& mw : m_modes) {
