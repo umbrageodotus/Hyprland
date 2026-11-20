@@ -206,7 +206,7 @@ void CMonitorRuleManager::ensureVRR(PHLMONITOR pMonitor) {
         if (USEVRR == 0) {
             if (m->m_vrrActive) {
                 m->m_output->state->resetExplicitFences();
-                m->m_output->state->setAdaptiveSync(false);
+                m->m_state.setAdaptiveSync(false);
 
                 if (!m->m_state.commit())
                     LOG(Log::ERR, "Couldn't commit output {} in ensureVRR -> false", m->m_output->name);
@@ -225,11 +225,11 @@ void CMonitorRuleManager::ensureVRR(PHLMONITOR pMonitor) {
             if (wantVRR) {
                 if (!m->m_vrrActive) {
                     m->m_output->state->resetExplicitFences();
-                    m->m_output->state->setAdaptiveSync(true);
+                    m->m_state.setAdaptiveSync(true);
 
                     if (!m->m_state.test()) {
                         LOG(Log::DEBUG, "Pending output {} does not accept VRR.", m->m_output->name);
-                        m->m_output->state->setAdaptiveSync(false);
+                        m->m_state.setAdaptiveSync(false);
                     }
 
                     if (!m->m_state.commit())
@@ -239,7 +239,7 @@ void CMonitorRuleManager::ensureVRR(PHLMONITOR pMonitor) {
             } else {
                 if (m->m_vrrActive) {
                     m->m_output->state->resetExplicitFences();
-                    m->m_output->state->setAdaptiveSync(false);
+                    m->m_state.setAdaptiveSync(false);
 
                     if (!m->m_state.commit())
                         LOG(Log::ERR, "Couldn't commit output {} in ensureVRR -> false", m->m_output->name);
@@ -262,18 +262,14 @@ void CMonitorRuleManager::ensureVRR(PHLMONITOR pMonitor) {
                 /* fullscreen */
                 m->m_vrrActive = true;
 
-                if (!m->m_output->state->state().adaptiveSync) {
-                    m->m_output->state->setAdaptiveSync(true);
-
-                    if (!m->m_state.test()) {
-                        LOG(Log::DEBUG, "Pending output {} does not accept VRR.", m->m_output->name);
-                        m->m_output->state->setAdaptiveSync(false);
-                    }
+                if (m->m_state.setAdaptiveSync(true) && !m->m_state.test()) {
+                    LOG(Log::DEBUG, "Pending output {} does not accept VRR.", m->m_output->name);
+                    m->m_state.setAdaptiveSync(false);
                 }
             } else {
                 m->m_vrrActive = false;
 
-                m->m_output->state->setAdaptiveSync(false);
+                m->m_state.setAdaptiveSync(false);
             }
         }
     };

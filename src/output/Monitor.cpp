@@ -470,7 +470,7 @@ void CMonitor::onDisconnect(bool destroy) {
 
     if (m_output) {
         m_output->state->resetExplicitFences();
-        m_output->state->setAdaptiveSync(false);
+        m_state.setAdaptiveSync(false);
         m_output->state->setEnabled(false);
 
         if (!m_state.commit())
@@ -679,7 +679,7 @@ bool CMonitor::applyMonitorRule(Config::CMonitorRule&& pMonitorRule) {
     // if it's disabled, disable and ignore
     if (RULE->m_disabled) {
         m_output->state->resetExplicitFences();
-        m_output->state->setAdaptiveSync(false);
+        m_state.setAdaptiveSync(false);
         m_output->state->setEnabled(false);
 
         m_activeMonitorRule = std::move(pMonitorRule);
@@ -2078,7 +2078,7 @@ bool CMonitor::attemptDirectScanout() {
         m_output->state->resetExplicitFences();
     }};
 
-    const bool NEEDS_TEST = !m_lastScanout || m_drmFormat != params.format; // do not retest while it's active
+    const bool  NEEDS_TEST = !m_lastScanout || m_drmFormat != params.format; // do not retest while it's active
     if (m_drmFormat != params.format) {
         m_output->state->setFormat(params.format);
         m_drmFormat = params.format;
@@ -2596,6 +2596,15 @@ bool CMonitor::gammaRampsInUse() {
 
 CMonitorState::CMonitorState(CMonitor* owner) : m_owner(owner) {
     ;
+}
+
+bool CMonitorState::setAdaptiveSync(bool enabled) {
+    const auto& STATE = m_owner->m_output->state;
+    if (STATE->state().adaptiveSync == enabled)
+        return false;
+
+    STATE->setAdaptiveSync(enabled);
+    return true;
 }
 
 void CMonitorState::ensureBufferPresent() {
