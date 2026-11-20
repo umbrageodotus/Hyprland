@@ -52,6 +52,7 @@ namespace Monitor {
         bool commit();
         bool test();
         bool updateSwapchain();
+        bool setAdaptiveSync(bool enabled);
         void applyModeWithSwapchain(const SP<Aquamarine::SOutputMode>& mode);
         void applyCustomModeWithSwapchain(const SP<Aquamarine::SOutputMode>& mode);
 
