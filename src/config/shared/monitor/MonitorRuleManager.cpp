@@ -203,53 +203,28 @@ void CMonitorRuleManager::ensureVRR(PHLMONITOR pMonitor) {
 
         const auto USEVRR = m->m_activeMonitorRule.m_vrr.has_value() ? m->m_activeMonitorRule.m_vrr.value() : *PVRR;
 
-        if (USEVRR == 0) {
-            if (m->m_vrrActive) {
-                m->m_output->state->resetExplicitFences();
-                m->m_state.setAdaptiveSync(false);
-
-                if (!m->m_state.commit())
-                    LOG(Log::ERR, "Couldn't commit output {} in ensureVRR -> false", m->m_output->name);
-            }
-            m->m_vrrActive = false;
-            return;
-        }
-
         const auto PWORKSPACE = m->m_activeWorkspace;
 
-        if (USEVRR == 1) {
-            bool wantVRR = true;
-            if (PWORKSPACE && Fullscreen::controller()->getFullscreenModes(PWORKSPACE).internal == Fullscreen::FSMODE_FULLSCREEN)
+        if (USEVRR == 0 || USEVRR == 1) {
+            bool wantVRR = USEVRR == 1 && m->m_output->vrrCapable;
+            if (wantVRR && PWORKSPACE && Fullscreen::controller()->getFullscreenModes(PWORKSPACE).internal == Fullscreen::FSMODE_FULLSCREEN)
                 wantVRR = !Fullscreen::controller()->getFullscreenWindow(PWORKSPACE)->m_ruleApplicator->noVRR().valueOrDefault();
 
-            if (wantVRR) {
-                if (!m->m_vrrActive) {
-                    m->m_output->state->resetExplicitFences();
-                    m->m_state.setAdaptiveSync(true);
+            if (!m->m_state.setAdaptiveSync(wantVRR))
+                return;
 
-                    if (!m->m_state.test()) {
-                        LOG(Log::DEBUG, "Pending output {} does not accept VRR.", m->m_output->name);
-                        m->m_state.setAdaptiveSync(false);
-                    }
-
-                    if (!m->m_state.commit())
-                        LOG(Log::ERR, "Couldn't commit output {} in ensureVRR -> true", m->m_output->name);
-                }
-                m->m_vrrActive = true;
-            } else {
-                if (m->m_vrrActive) {
-                    m->m_output->state->resetExplicitFences();
-                    m->m_state.setAdaptiveSync(false);
-
-                    if (!m->m_state.commit())
-                        LOG(Log::ERR, "Couldn't commit output {} in ensureVRR -> false", m->m_output->name);
-                }
-                m->m_vrrActive = false;
+            m->m_output->state->resetExplicitFences();
+            if (wantVRR && !m->m_state.test()) {
+                LOG(Log::DEBUG, "Pending output {} does not accept VRR.", m->m_output->name);
+                m->m_state.setAdaptiveSync(false);
             }
+
+            if (!m->m_state.commit())
+                LOG(Log::ERR, "Couldn't commit output {} in ensureVRR -> {}", m->m_output->name, wantVRR);
             return;
         } else if (USEVRR == 2 || USEVRR == 3) {
 
-            bool wantVRR = Fullscreen::controller()->getFullscreenModes(PWORKSPACE).internal == Fullscreen::FSMODE_FULLSCREEN;
+            bool wantVRR = m->m_output->vrrCapable && Fullscreen::controller()->getFullscreenModes(PWORKSPACE).internal == Fullscreen::FSMODE_FULLSCREEN;
             if (wantVRR && Fullscreen::controller()->getFullscreenWindow(PWORKSPACE)->m_ruleApplicator->noVRR().valueOrDefault())
                 wantVRR = false;
 
@@ -258,17 +233,8 @@ void CMonitorRuleManager::ensureVRR(PHLMONITOR pMonitor) {
                 wantVRR                = contentType == NContentType::CONTENT_TYPE_GAME || contentType == NContentType::CONTENT_TYPE_VIDEO;
             }
 
-            if (wantVRR) {
-                /* fullscreen */
-                m->m_vrrActive = true;
-
-                if (m->m_state.setAdaptiveSync(true) && !m->m_state.test()) {
-                    LOG(Log::DEBUG, "Pending output {} does not accept VRR.", m->m_output->name);
-                    m->m_state.setAdaptiveSync(false);
-                }
-            } else {
-                m->m_vrrActive = false;
-
+            if (m->m_state.setAdaptiveSync(wantVRR) && wantVRR && !m->m_state.test()) {
+                LOG(Log::DEBUG, "Pending output {} does not accept VRR.", m->m_output->name);
                 m->m_state.setAdaptiveSync(false);
             }
         }

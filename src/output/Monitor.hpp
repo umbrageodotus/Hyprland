@@ -107,8 +107,7 @@ namespace Monitor {
         CMonitorZoomController      m_zoomController;
 
         bool                        m_dpmsStatus       = true;
-        bool                        m_vrrActive        = false; // this can be TRUE even if VRR is not active in the case that this display does not support it.
-        bool                        m_enabled10bit     = false; // as above, this can be TRUE even if 10 bit failed.
+        bool                        m_enabled10bit     = false; // this can be TRUE even if 10 bit failed.
         NCMType::eCMType            m_cmType           = NCMType::CM_SRGB;
         NTransferFunction::eTF      m_sdrEotf          = NTransferFunction::TF_DEFAULT;
         float                       m_sdrSaturation    = 1.0f;
@@ -313,6 +312,7 @@ namespace Monitor {
         virtual bool                        enabled() const override;
         virtual bool                        hasOutput() const override;
         virtual SP<Aquamarine::IOutput>     output() const override;
+        bool                                vrrActive() const;
         virtual std::optional<Vector2D>     explicitPosition() const override;
         virtual Config::eAutoDirs           autoDirection() const override;
         virtual Vector2D                    xwaylandPosition() const override;
