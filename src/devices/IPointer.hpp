@@ -18,7 +18,7 @@ class IPointer : public IHID {
     virtual SP<Aquamarine::IPointer> aq()              = 0;
 
     struct SMotionEvent {
-        uint32_t        timeMs = 0;
+        uint64_t        timeUs = 0;
         Vector2D        delta, unaccel;
         bool            mouse = false;
         SP<IPointer>    device;
