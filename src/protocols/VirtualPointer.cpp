@@ -17,7 +17,7 @@ CVirtualPointerV1Resource::CVirtualPointerV1Resource(SP<CZwlrVirtualPointerV1> r
 
     m_resource->setMotion([this](CZwlrVirtualPointerV1* r, uint32_t timeMs, wl_fixed_t dx, wl_fixed_t dy) {
         m_events.move.emit(IPointer::SMotionEvent{
-            .timeMs  = timeMs,
+            .timeUs  = sc<uint64_t>(timeMs) * 1000,
             .delta   = {wl_fixed_to_double(dx), wl_fixed_to_double(dy)},
             .unaccel = {wl_fixed_to_double(dx), wl_fixed_to_double(dy)},
             .device  = nullptr,

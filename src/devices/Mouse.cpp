@@ -1,7 +1,6 @@
 #include "Mouse.hpp"
 #include "../defines.hpp"
 #include <aquamarine/input/Input.hpp>
-
 SP<CMouse> CMouse::create(SP<Aquamarine::IPointer> mouse) {
     SP<CMouse> pMouse = SP<CMouse>(new CMouse(mouse));
 
@@ -26,7 +25,7 @@ CMouse::CMouse(SP<Aquamarine::IPointer> mouse_) : IPointer(mouse_ ? mouse_->getL
 
     m_listeners.motion = m_mouse->events.move.listen([this](const Aquamarine::IPointer::SMoveEvent& event) {
         m_pointerEvents.motion.emit(SMotionEvent{
-            .timeMs  = event.timeMs,
+            .timeUs  = event.timeUs,
             .delta   = event.delta,
             .unaccel = event.unaccel,
             .mouse   = true,
