@@ -151,14 +151,15 @@ void CInputManager::onMouseMoved(IPointer::SMotionEvent e) {
     if (e.mouse)
         recheckMouseWarpOnMouseInput();
 
+    // Moving can activate an input-capture barrier. That sample belongs to the capturer too.
+    Pointer::mgr()->move(DELTA);
+    if (PROTO::inputCapture->isCaptured())
+        return;
+
     // an interactive move or resize is an exclusive grab, so don't feed relative motion to the window being
     // dragged. a pointer-locked game would otherwise pan its camera from the drag itself.
     if (!g_layoutManager->dragController()->target())
         PROTO::relativePointer->sendRelativeMotion(sc<uint64_t>(e.timeMs) * 1000, DELTA, unaccel);
-    Pointer::mgr()->move(DELTA);
-
-    if (PROTO::inputCapture->isCaptured())
-        return;
 
     mouseMoveUnified(e.timeMs, false, e.mouse);
 
