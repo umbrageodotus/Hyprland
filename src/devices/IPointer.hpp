@@ -18,10 +18,12 @@ class IPointer : public IHID {
     virtual SP<Aquamarine::IPointer> aq()              = 0;
 
     struct SMotionEvent {
-        uint32_t     timeMs = 0;
-        Vector2D     delta, unaccel;
-        bool         mouse = false;
-        SP<IPointer> device;
+        uint32_t        timeMs = 0;
+        Vector2D        delta, unaccel;
+        bool            mouse = false;
+        SP<IPointer>    device;
+
+        const Vector2D& effectiveDelta(bool forceNoAccel) const;
     };
 
     struct SMotionAbsoluteEvent {

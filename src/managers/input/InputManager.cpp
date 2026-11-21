@@ -130,8 +130,8 @@ CInputManager::~CInputManager() {
 void CInputManager::onMouseMoved(IPointer::SMotionEvent e) {
     static auto PNOACCEL = CConfigValue<Config::BOOL>("input:force_no_accel");
 
-    Vector2D    delta   = e.delta;
-    Vector2D    unaccel = e.unaccel;
+    auto&       delta   = e.delta;
+    auto&       unaccel = e.unaccel;
 
     if (e.device) {
         if (e.device->m_isTouchpad) {
@@ -146,7 +146,7 @@ void CInputManager::onMouseMoved(IPointer::SMotionEvent e) {
         }
     }
 
-    const auto DELTA = *PNOACCEL == 1 ? unaccel : delta;
+    const auto& DELTA = e.effectiveDelta(*PNOACCEL == 1);
 
     if (e.mouse)
         recheckMouseWarpOnMouseInput();
@@ -154,7 +154,7 @@ void CInputManager::onMouseMoved(IPointer::SMotionEvent e) {
     // an interactive move or resize is an exclusive grab, so don't feed relative motion to the window being
     // dragged. a pointer-locked game would otherwise pan its camera from the drag itself.
     if (!g_layoutManager->dragController()->target())
-        PROTO::relativePointer->sendRelativeMotion(sc<uint64_t>(e.timeMs) * 1000, delta, unaccel);
+        PROTO::relativePointer->sendRelativeMotion(sc<uint64_t>(e.timeMs) * 1000, DELTA, unaccel);
     Pointer::mgr()->move(DELTA);
 
     if (PROTO::inputCapture->isCaptured())
@@ -582,8 +582,7 @@ void CInputManager::mouseMoveUnified(uint32_t time, bool refocus, bool mouse, st
         }
     }
 
-    if (m_borderIconDirection != BORDERICON_NONE &&
-        (!foundSurface || !pFoundWindow || !*PRESIZEONBORDER || !*PRESIZECURSORICON)) {
+    if (m_borderIconDirection != BORDERICON_NONE && (!foundSurface || !pFoundWindow || !*PRESIZEONBORDER || !*PRESIZECURSORICON)) {
         m_borderIconDirection = BORDERICON_NONE;
         Pointer::Cursor::overrideController->unsetOverride(Pointer::Cursor::CURSOR_OVERRIDE_WINDOW_EDGE);
     }
