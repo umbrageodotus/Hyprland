@@ -9,7 +9,6 @@
 #include "../../helpers/time/Time.hpp"
 #include "../../pointer/PointerController.hpp"
 #include "../../protocols/PointerConstraints.hpp"
-#include "../../protocols/RelativePointer.hpp"
 #include "../../protocols/core/Compositor.hpp"
 #include "../../protocols/core/DataDevice.hpp"
 #include "../../protocols/core/Subcompositor.hpp"
@@ -225,6 +224,5 @@ bool CPointerConstraintController::apply(uint32_t time, const Vector2D& position
 
     Pointer::pointerController()->warpTo(CLOSEST, true);
     g_pSeatManager->sendPointerMotion(time, BUFFERLOCAL);
-    PROTO::relativePointer->sendRelativeMotion(sc<uint64_t>(time) * 1000, {}, {});
     return true;
 }
