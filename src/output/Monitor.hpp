@@ -107,6 +107,7 @@ namespace Monitor {
         CMonitorZoomController      m_zoomController;
 
         bool                        m_dpmsStatus       = true;
+        int                         m_vrrMinHz         = 24;
         bool                        m_enabled10bit     = false; // this can be TRUE even if 10 bit failed.
         NCMType::eCMType            m_cmType           = NCMType::CM_SRGB;
         NTransferFunction::eTF      m_sdrEotf          = NTransferFunction::TF_DEFAULT;

@@ -138,6 +138,11 @@ namespace {
              p.rule().m_vrr = VRR < 0 ? std::nullopt : std::optional(VRR);
              return true;
          }},
+        {"vrr_min_hz", []() -> ILuaConfigValue* { return new CLuaConfigInt(24, 1); },
+         [](ILuaConfigValue* v, CMonitorRuleParser& p) {
+             p.rule().m_vrrMinHz = sc<int>(*sc<const Config::INTEGER*>(v->data()));
+             return true;
+         }},
         {"icc", []() -> ILuaConfigValue* { return new CLuaConfigString(STRVAL_EMPTY); },
          [](ILuaConfigValue* v, CMonitorRuleParser& p) { return p.parseICC(*sc<const Config::STRING*>(v->data())); }},
         {"supports_wide_color", []() -> ILuaConfigValue* { return new CLuaConfigInt(0, -1, 1); },

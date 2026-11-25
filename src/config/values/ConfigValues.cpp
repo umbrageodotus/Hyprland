@@ -713,7 +713,6 @@ std::vector<SP<IValue>> Values::getConfigValues() {
         MS<Int>("cursor:no_hardware_cursors", "disables hardware cursors.", 2, {.min = 0, .max = 2, .map = OptionMap{{"Disabled", 0}, {"Enabled", 1}, {"Auto", 2}}}),
         MS<Int>("cursor:no_break_fs_vrr", "disables scheduling new frames on cursor movement for fullscreen apps with VRR enabled.", 2,
                 {.min = 0, .max = 2, .map = OptionMap{{"disable", 0}, {"enable", 1}, {"auto", 2}}}),
-        MS<Int>("cursor:min_refresh_rate", "minimum refresh rate for cursor movement when no_break_fs_vrr is active.", 24, {.min = 10, .max = 500}),
         MS<Int>("cursor:hotspot_padding", "the padding, in logical px, between screen edges and the cursor", 0, {.min = 0, .max = 20}),
         MS<Float>("cursor:inactive_timeout", "in seconds, after how many seconds of cursor's inactivity to hide it. Set to 0 for never.", 0, {.min = 0, .max = 1000}),
         MS<Bool>("cursor:no_warps", "if true, will not warp the cursor in many cases", false),

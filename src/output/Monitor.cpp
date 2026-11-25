@@ -602,6 +602,7 @@ bool CMonitor::applyMonitorRuleSoft(Config::CMonitorRule&& pMonitorRule) {
     m_transform         = m_activeMonitorRule.m_transform;
     m_supportsWideColor = m_activeMonitorRule.m_supportsWideColor;
     m_supportsHDR       = m_activeMonitorRule.m_supportsHDR;
+    m_vrrMinHz          = m_activeMonitorRule.m_vrrMinHz;
 
     if (m_activeMonitorRule.m_iccFile.empty()) {
         // only apply explicit cm settings if we have no icc file
@@ -1110,7 +1111,6 @@ void CMonitor::addDamage(const CBox& box) {
 
 bool CMonitor::shouldSkipScheduleFrameOnMouseEvent() {
     static auto PNOBREAK = CConfigValue<Config::INTEGER>("cursor:no_break_fs_vrr");
-    static auto PMINRR   = CConfigValue<Config::INTEGER>("cursor:min_refresh_rate");
 
     // skip scheduling extra frames for fullsreen apps with vrr
     const auto FULLSCREEN_WINDOW  = Fullscreen::controller()->getFullscreenWindow(m_self.lock());
@@ -1119,7 +1119,7 @@ bool CMonitor::shouldSkipScheduleFrameOnMouseEvent() {
     const bool shouldSkip         = (!shouldRenderCursor || noBreak) && vrrActive();
 
     // keep requested minimum refresh rate
-    if (shouldSkip && *PMINRR && m_lastPresentationTimer.getMillis() > 1000.0f / *PMINRR) {
+    if (shouldSkip && m_vrrMinHz && m_lastPresentationTimer.getMillis() > 1000.0f / m_vrrMinHz) {
         // damage whole screen because some previous cursor box damages were skipped
         m_damage.damageEntire();
         return false;
