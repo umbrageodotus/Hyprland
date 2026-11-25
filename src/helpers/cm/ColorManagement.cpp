@@ -124,13 +124,12 @@ bool CImageDescription::needsCM(WP<const CImageDescription> target) const {
 
     return m_imageDescription.icc.present || target->m_imageDescription.icc.present           // TODO compare ICC
         || m_imageDescription.transferFunction != target->m_imageDescription.transferFunction //
-        //|| m_imageDescription.transferFunctionPower != target->m_imageDescription.transferFunctionPower // TODO unsupported
-        || m_imageDescription.getPrimaries() != target->m_imageDescription.getPrimaries() //
-        // || m_imageDescription.masteringPrimaries != target->m_imageDescription.masteringPrimaries // TODO unused
-        || m_imageDescription.luminances != target->m_imageDescription.luminances                   //
-        || m_imageDescription.getTFMinLuminance() != target->m_imageDescription.getTFMinLuminance() //
-        || m_imageDescription.getTFMaxLuminance() != target->m_imageDescription.getTFMaxLuminance() //
-        // || m_imageDescription.masteringLuminances != target->m_imageDescription.masteringLuminances // TODO unused
+        // || m_imageDescription.transferFunctionPower != target->m_imageDescription.transferFunctionPower    // TODO unsupported
+        || m_imageDescription.getPrimaries() != target->m_imageDescription.getPrimaries()                     //
+        || m_imageDescription.luminances != target->m_imageDescription.luminances                             //
+        || m_imageDescription.getTFMinLuminance() != target->m_imageDescription.getTFMinLuminance()           //
+        || m_imageDescription.getTFMaxLuminance() != target->m_imageDescription.getTFMaxLuminance()           //
+        || m_imageDescription.getContentMaxLuminance() != target->m_imageDescription.getContentMaxLuminance() //
         ;
 }
 
@@ -176,14 +175,6 @@ static std::optional<Mat3x3> invertMat3(const Mat3x3& m) {
 static std::array<float, 3> matByVec(const Mat3x3& M, const std::array<float, 3>& v) {
     const auto ARR = M.getMatrix();
     return {ARR[0] * v[0] + ARR[1] * v[1] + ARR[2] * v[2], ARR[3] * v[0] + ARR[4] * v[1] + ARR[5] * v[2], ARR[6] * v[0] + ARR[7] * v[1] + ARR[8] * v[2]};
-}
-
-float NColorManagement::SImageDescription::getContentMaxLuminance(float fallback) const {
-    if (maxCLL > 0)
-        return std::min(sc<float>(maxCLL), fallback);
-    if (masteringLuminances.max > 0)
-        return std::min(sc<float>(masteringLuminances.max), fallback);
-    return fallback;
 }
 
 std::optional<Mat3x3> NColorManagement::rgbToXYZFromPrimaries(SPCPRimaries pr) {

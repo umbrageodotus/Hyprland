@@ -280,7 +280,17 @@ namespace NColorManagement {
             return primaries;
         }
 
-        float getContentMaxLuminance(float fallback) const;
+        float getContentMaxLuminance() const {
+            const float maxLuminance = luminances.max > 0 ? luminances.max : luminances.reference;
+
+            if (maxCLL > 0)
+                return std::min(sc<float>(maxCLL), maxLuminance);
+
+            if (masteringLuminances.max > 0)
+                return std::min(sc<float>(masteringLuminances.max), maxLuminance);
+
+            return maxLuminance;
+        }
 
         float getTFMinLuminance(float sdrMinLuminance = -1.0f) const {
             switch (transferFunction) {
